@@ -56,23 +56,20 @@ class validator_helper {
 
 	/* CSR content */
 	protected $csr_content;
-	protected $csr_dns;
 
 	/* CSR certificate values */
 	public $csr_cn;
-	public $csr_ou;
 	public $csr_o;
-	public $csr_street1;
-	public $csr_street2;
-	public $csr_street3;
+	public $csr_ou;
+	public $csr_st;
 	public $csr_l;
 	public $csr_s;
-	public $csr_postalcode;
 	public $csr_c;
 	public $csr_email;
 	public $csr_phone;
 	public $csr_keysize;
-	public $csr_san;
+	public $csr_sans;
+	public $csr_domains;
 	
 	/* Whois */
 	protected $whois_response;
@@ -84,17 +81,15 @@ class validator_helper {
 	public $response_signature_validity;
 	public $response_signature_validity_message;
 
-	/* Response error logs */
-	public $response_error = false;		// Error, true or false
-	public $response_error_type;		// Type of error, warning or error
-	public $response_error_message;		// Error message
+	/* Response logs */
+	public $response_checks = array();	// Error message
 
 	/* Duration */
 	public $duration;					// Duration
 
 
 	/**
-	* mobileid_helper class
+	* validator_helper class
 	*
 	*/
 
@@ -114,7 +109,7 @@ class validator_helper {
 	}
 
 	/**
-	* Mobileid check the requirements of the web server
+	* Validator check the requirements of the web server
 	*
 	* @return 	boolean	true on success, false on failure
 	*/
@@ -122,7 +117,7 @@ class validator_helper {
 	private function checkRequirements() {
 
 		if (!extension_loaded('curl')) {
-			$this->setError('PHP <curl> library is not installed!');
+			$this->setTest('Requirements (php_curl)', false, 'PHP <curl> library is not installed!');
 			return false;
 		}
 		
@@ -130,14 +125,14 @@ class validator_helper {
 	}
 
 	/**
-	* Mobileid set the default configuration
+	* Validator set the default configuration
 	*
 	* @return 	boolean	true on success, false on failure
 	*/
 	
 	private function setConfiguration() {
 		
-		/* New instance of the mobileID configuration class */
+		/* New instance of the validator_config class */
 		$this->validator_config = new validator_config();
 		
 		/* Check if the configuraiton is correct */
@@ -170,19 +165,19 @@ class validator_helper {
 	}
 
 	/**
-	* Mobileid check the configuration
+	* Validator check the configuration
 	*
 	* @return 	boolean	true on success, false on failure
 	*/
 	private function checkConfiguration() {
 
 		if (!strlen($this->validator_config->api_url)) {
-			$this->setError('Comodo API not defined!');
+			$this->setTest('Configuration (Comodo API)', false, 'Comodo API not defined!');
 			return false;
 		}
 
 		if (!strlen($this->validator_config->san_entries_max)) {
-			$this->setError('Maximum SAN not defined!');
+			$this->setTest('Configuration (san_entries_max)', false, 'Maximum SAN entries not defined!');
 			return false;
 		}
 		
@@ -190,89 +185,77 @@ class validator_helper {
 	}
 
 	/**
-	* Validateor, check the request certificate
+	* Validator, check the request certificate
 	*
 	* @return 	boolean	true on success, false on failure
 	*/
 	public function checkRequest() {
-		
-		if (!$this->getCsrContent()) {
-			$this->setError($this->app->getText('APP_ERROR_1'));
-			return false;
-		}
-
-		if (!$this->csrIsAValidBlock()) {
-			$this->setError($this->app->getText('APP_ERROR_2'));
-			return false;
-		}
 
 		/* Calculate the request duration */
 		$time_start = microtime(true);
+
+		// Get the CSR content
+		$this->setTest('Valid CSR content', $this->getCsrContent(), $this->app->getText('APP_ERROR_1'));
+
+		// Check if the CSR is a valid blcok
+		$this->setTest('Valid PKCS#10 block', $this->checkValidBlock(), $this->app->getText('APP_ERROR_2'));
 		
-		if (!$this->sendRequest()) {
-			return false;			
-		}
-		
-		$this->formatCertificate();
-		
-		//var_dump($this->comodo_response);
-		
-		if (!$this->checkKeySize()) {
+		if (!$this->getCsrSubject()) {
 			$this->getDuration($time_start);
-			return false;			
-		}
-
-		if (!$this->checkCommonName()) {
-			$this->getDuration($time_start);
-			return false;			
-		}
-
-		if (!$this->checkOrganisation()) {
-			$this->getDuration($time_start);
-			return false;			
-		}
-
-		if (!$this->checkLocalityAndState()) {
-			$this->getDuration($time_start);
-			return false;			
-		}
-
-		if (!$this->checkCountry()) {
-			$this->getDuration($time_start);
-			return false;			
-		}
-
-		if (!$this->checkEmail()) {
-			$this->getDuration($time_start);
-			return false;			
-		}
-
-		if (!$this->checkSubjectAlternativeName()) {
-			$this->getDuration($time_start);
-			return false;			
-		}
-		
-		$this->getDuration($time_start);
-
-		return true;
-	}
-
-	/**
-	* Get CSR content from the form
-	*
-	* @return 	string CSR content on success, false on failure
-	*/
-	private function getDuration($time_start) {
-		
-		if (!$time_start) {
 			return false;
 		}
 
-		/* Calculate the request duration */
-		$time_end = microtime(true);
+		// Check the key size, should be only 2048 bits
+		$this->setTest('Key size', $this->checkKeySize(), $this->app->getText('APP_ERROR_3'));
 
-		/* Calculate the request duration */
-		$this->duration = $time_end - $time_start;		
+		// Check the weak debian key
+		$this->setTest('Weak Debian key', $this->checkWeakDebiankey(), $this->app->getText('APP_ERROR_4'));
+
+		// The Common Name (CN) must be available.
+		$this->setTest('Common Name (CN) available', $this->checkCommonNameAvailable(), $this->app->getText('APP_ERROR_5'));
+
+		// The CN must be a valid FQDN/IP address (verifiable through WhoIS lookup).
+		$this->setTest('Common Name (CN) valid FQDN', $this->checkCommonNameWhois(), $this->app->getText('APP_ERROR_6'));
+
+		// The field Organization (O) is MANDATORY.
+		$this->setTest('Organisation (O) mandatory', $this->checkOrganisation(), $this->app->getText('APP_ERROR_7'));
+		
+		// At least ONE of the following fields MUST be present: Locality (L) or State (S). It is allowed to include both.
+		$this->setTest('Locality (L) or State (S) mandatory', $this->checkLocalityAndState(), $this->app->getText('APP_ERROR_8'));
+
+		// The field country (C) is MANDATORY.
+		$this->setTest('Country (C) mandatory', $this->checkCountry(), $this->app->getText('APP_ERROR_9'));
+
+		// the CSR should not contain any e-mail address.
+		$this->setTest('E-mail not present', $this->checkEmail(), $this->app->getText('APP_ERROR_10'));
+
+		if (!$this->getCsrSanValues()) {
+			$this->getDuration($time_start);
+			return false;
+		}
+
+		// The X.509v3 Extension Subject Alternative Name (SAN) must be available
+		$this->setTest('Subject Alternative Name (SAN) mandatory', $this->checkSanAvailable(), $this->app->getText('APP_ERROR_12'));
+
+		// The SAN must contain at least 1 entry and a configurable number of maximal entries.
+		$this->setTest('Subject Alternative Name (SAN) entries', $this->checkSanEntries(), str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
+
+		// One of the SAN entries must correspond to the common name.
+		$this->setTest('Subject Alternative Name (SAN) entry must correspond to CN', $this->checkSanWithCn(), $this->app->getText('APP_ERROR_14'));
+
+		// The SAN's domain(s) must be a valid FQDN/IP address (verifiable through WhoIS lookup).
+		$this->setTest('Subject Alternative Name (SAN) domains valid FQDN', $this->checkSanWhois(), $this->app->getText('APP_ERROR_15'));
+
+		// The domain of the CN is NOT blacklisted.
+		$this->setTest('Common Name (CN) domain blacklisted', $this->checkCommonNameBlacklisted(), $this->app->getText('APP_ERROR_16'));
+
+		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
+		$this->setTest('Subject Alternative Name (SAN) domains blacklisted', $this->checkSanBlacklisted(), $this->app->getText('APP_ERROR_17'));
+
+		// Set the duration of the request
+		$this->getDuration($time_start);
+
+		return true;
 	}
 
 	/**
@@ -308,17 +291,118 @@ class validator_helper {
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function csrIsAValidBlock() {
+	private function checkValidBlock() {
 
 		if (!strlen($this->csr_content)) {
 			return false;
 		}
 		
-		if (!strpos($this->csr_content, "BEGIN CERTIFICATE REQUEST")) {
+		if (!openssl_csr_get_subject($this->csr_content)) {
 			return false;
 		}
 
-		if (!strpos($this->csr_content, "END CERTIFICATE REQUEST")) {
+		return true;
+	}
+
+	/**
+	* Get the CSR subject
+	*
+	* @return 	string CSR content on success, false on failure
+	*/
+	private function getCsrSubject() {
+		
+		if (!$this->csr_content) {
+			return false;
+		}
+
+		$subject = openssl_csr_get_subject($this->csr_content);
+
+		if (!$subject) {
+			return false;
+		}
+
+		foreach ($subject as $key => $value) {
+			switch (strtolower($key)) {
+				case 'c':
+					$this->csr_c = $value;
+					break;
+
+				case 'st':
+					if (is_array($value)) {
+						$this->csr_st = $value;
+					} else {
+						$this->csr_st[0] = $value;
+					}
+					break;
+
+				case 'l':
+					$this->csr_l = $value;
+					break;
+
+				case 'o':
+					$this->csr_o = $value;
+					break;
+
+				case 'ou':
+					if (is_array($value)) {
+						$this->csr_ou = $value;
+					} else {
+						$this->csr_ou[0] = $value;
+					}
+					break;
+
+				case 'cn':
+					$this->csr_cn = $value;
+					break;
+
+				case 'mail':
+					$this->csr_email = $value;
+					break;
+			}
+		}
+		
+		return true;
+	}
+
+	/**
+	* Check the key size of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkKeySize() {
+
+		$cert_details = openssl_pkey_get_details(openssl_csr_get_public_key($this->csr_content));
+		$this->csr_keysize = $cert_details['bits'];
+	
+		if ($this->csr_keysize != 2048) {
+			return false;
+		}
+		
+		// Weak Debian key to be added..
+		
+		return true;
+	}
+
+	/**
+	* Check the weak Debian key
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkWeakDebiankey() {
+		
+		// Weak Debian key to be added..
+		
+		return true;
+	}
+
+	/**
+	* Check if the Common Name is available
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkCommonNameAvailable() {
+
+		if (!strlen($this->csr_cn)) {
 			return false;
 		}
 		
@@ -326,11 +410,155 @@ class validator_helper {
 	}
 
 	/**
+	* Check the Common Name of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkCommonNameWhois() {
+		
+		if (!strlen($this->csr_cn)) {
+			return false;
+		}
+		
+		$dns = explode('.', $this->csr_cn);
+		$count = count($dns);
+		
+		if (!$count) {
+			return false;
+		}
+
+		$whois = new Whois();
+		
+		$this->whois_response = $whois->lookup($dns[$count-2].'.'.$dns[$count-1]);
+
+		if (strtolower($this->whois_response["regrinfo"]["registered"]) != 'yes') {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	* Check the Organisation of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkOrganisation() {
+		
+		if (!strlen($this->csr_o)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	* Check the Locality and the State of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkLocalityAndState() {
+
+		if (!strlen($this->csr_l.$this->csr_s)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	* Check the Country of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkCountry() {
+
+		if (!strlen($this->csr_c)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	* Check the Email of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkEmail() {
+
+		if (strlen($this->csr_email)) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	* Get the Subject Alternative Name from the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function getCsrSanValues() {
+		
+		if (!$this->sendRequestToComodo()) {
+			return false;
+		}
+		
+		if (!strlen($this->comodo_response[16])) {
+			return false;
+		}
+
+		// Format the Subject Alternative Name
+		$san = explode('=', $this->comodo_response[16]);
+
+		if (!strlen($san[1])) {
+			return false;
+		}
+
+		$this->csr_sans = explode(',', $san[1]);
+		
+		$this->getCsrDomainsfromSans();
+		
+		return true;
+	}
+
+	/**
+	* Get the Subject Alternative Name from the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function getCsrDomainsfromSans() {
+		
+		if (!count($this->csr_sans)) {
+			return false;
+		}
+		
+		$san_dns_temp = '';
+		$this->csr_domains = array();
+
+		foreach($this->csr_sans as $san) {
+
+			$dns = explode('.', $san);
+			$count = count($dns);
+
+			$san_dns = $dns[$count-2].'.'.$dns[$count-1];
+			
+			if ($san_dns != $san_dns_temp) {
+				$this->csr_domains[] = $san_dns;
+				$san_dns_temp = $san_dns;
+			}
+		}
+
+		return true;		
+	}
+
+	/**
 	* Send the CSR request to the Comodo API
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function sendRequest() {
+	private function sendRequestToComodo() {
 
 		// Get parameters values
 		$fields = array('csr' => $this->csr_content,
@@ -368,7 +596,7 @@ class validator_helper {
 
 		curl_close($ch);
 		
-		return $this->checkResponse();
+		return $this->checkComodoResponse();
 	}
 
 	/**
@@ -376,11 +604,10 @@ class validator_helper {
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function checkResponse() {
+	private function checkComodoResponse() {
 		
 		// Check the response from Comodo API
 		if (!$this->comodo_response_text) {
-			$this->setError($this->app->getText('APP_ERROR_3'));
 			return false;
 		}
 		
@@ -388,7 +615,7 @@ class validator_helper {
 		$this->comodo_response = preg_split('/$\R?^/m', $this->comodo_response_text);
 		
 		if (!is_array($this->comodo_response) || !count($this->comodo_response)) {
-			$this->setError($this->app->getText('APP_ERROR_3'));
+			$this->setTest('Get Subject Alternative Name (SAN)', false, $this->app->getText('APP_ERROR_COMODO_API'));
 			return false;			
 		}
 
@@ -396,197 +623,110 @@ class validator_helper {
 			return true;
 		}
 
-		$this->setError($this->getComodoErrorMessage());
+		$this->setTest('Get Subject Alternative Name (SAN)', false, $this->app->getText('APP_ERROR_11').' ('.$this->getComodoErrorMessage().')');
 
 		return false;
 	}
 
 	/**
-	* Format the value of the certificate request
+	* Check if the Subject Alternative Name is available
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function formatCertificate() {
+	private function checkSanAvailable() {
 		
-		// Format the common name
-		if (strlen($this->comodo_response[1])) {
-			$cn = explode('=', $this->comodo_response[1]);
-
-			if (strlen($cn[1])) {
-				$this->csr_cn = $cn[1];
-			}
-		}
-
-		// Format the organisation unit
-		if (strlen($this->comodo_response[2])) {
-			$ou = explode('=', $this->comodo_response[2]);
-
-			if (strlen($ou[1])) {
-				$this->csr_ou = $ou[1];
-			}
-		}
-
-		// Format the organisation
-		if (strlen($this->comodo_response[3])) {
-			$o = explode('=', $this->comodo_response[3]);
-
-			if (strlen($o[1])) {
-				$this->csr_o = $o[1];
-			}
-		}
-
-		// Format the street 1
-		if (strlen($this->comodo_response[5])) {
-			$s1 = explode('=', $this->comodo_response[5]);
-
-			if (strlen($s1[1])) {
-				$this->csr_street1 = $s1[1];
-			}
-		}
-
-		// Format the street 2
-		if (strlen($this->comodo_response[6])) {
-			$s2 = explode('=', $this->comodo_response[6]);
-
-			if (strlen($s2[1])) {
-				$this->csr_street2 = $s2[1];
-			}
-		}
-
-		// Format the street 3
-		if (strlen($this->comodo_response[7])) {
-			$s3 = explode('=', $this->comodo_response[7]);
-
-			if (strlen($s3[1])) {
-				$this->csr_street3 = $s3[1];
-			}
-		}
-
-		// Format the locality
-		if (strlen($this->comodo_response[8])) {
-			$l = explode('=', $this->comodo_response[8]);
-
-			if (strlen($l[1])) {
-				$this->csr_l = $l[1];
-			}
-		}
-
-		// Format the state
-		if (strlen($this->comodo_response[9])) {
-			$s = explode('=', $this->comodo_response[9]);
-
-			if (strlen($s[1])) {
-				$this->csr_s = $s[1];
-			}
-		}
-
-		// Format the postal code
-		if (strlen($this->comodo_response[10])) {
-			$postalcode = explode('=', $this->comodo_response[10]);
-
-			if (strlen($postalcode[1])) {
-				$this->csr_postalcode = $postalcode[1];
-			}
-		}
-
-		// Format the country
-		if (strlen($this->comodo_response[11])) {
-			$c = explode('=', $this->comodo_response[11]);
-
-			if (strlen($c[1])) {
-				$this->csr_c = $c[1];
-			}
-		}
-
-		// Format the email
-		if (strlen($this->comodo_response[12])) {
-			$email = explode('=', $this->comodo_response[12]);
-
-			if (strlen($email[1])) {
-				$this->csr_email = $email[1];
-			}
-		}
-
-		// Format the phone
-		if (strlen($this->comodo_response[13])) {
-			$phone = explode('=', $this->comodo_response[13]);
-
-			if (strlen($phone[1])) {
-				$this->csr_phone = $phone[1];
-			}
-		}
-
-		// Format the key size
-		if (strlen($this->comodo_response[15])) {
-			$keysize = explode('=', $this->comodo_response[15]);
-
-			if (strlen($keysize[1])) {
-				$this->csr_keysize = $keysize[1];
-			}
-		}
-
-		// Format the Subject Alternative Name
-		if (strlen($this->comodo_response[16])) {
-			$san = explode('=', $this->comodo_response[16]);
-
-			if (strlen($san[1])) {
-				$this->csr_san = $san[1];
-			}
+		if (!count($this->csr_sans)) {
+			return false;
 		}
 		
 		return true;
 	}
 
 	/**
-	* Check the key size of the request
+	* Check the Subject Alternative Name entries
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function checkKeySize() {
-		
-		if (!strlen($this->csr_keysize)) {
+	private function checkSanEntries() {
+
+		// Get almost one entry
+		if (!strlen($this->csr_sans[0])) {
 			return false;
 		}
 
-	
-		if ($this->csr_keysize != '2048') {
-			$this->setError($this->app->getText('APP_ERROR_4'));
+		// Maximum of SAN reach
+		if (count($this->csr_sans) > $this->san_entries_max) {
 			return false;
+			
 		}
-		
-		// Weak Debian key to be added..
 		
 		return true;
 	}
 
 	/**
-	* Check the Common Name of the request
+	* Check the Subject Alternative Name so that one of them should correspond to the Common Name
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function checkCommonName() {
+	private function checkSanWithCn() {
+
+		// One of the SAN entries must correspond to the common name.
+		if (!in_array($this->csr_cn, $this->csr_sans)) {
+			return false;			
+		}
 		
+		return true;
+	}
+
+	/**
+	* Check the Subject Alternative Name of the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkSanWhois() {
+
+		// The SAN must contain at least 1 entry
+		if (!count($this->csr_domains)) {
+			return false;
+		}
+
+		// Internal FQDNs, reserved IP addresses and .local domains are strict forbidden.
+		$whois = new Whois();
+		
+		$check = true;
+		$san_dns_array = array();
+		foreach($this->csr_domains as $domain) {
+
+			$whois_response = $whois->lookup($domain);
+
+			if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+				$check = false;
+				break;
+			}
+		}
+		
+		if (!$check) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	* Check the Subject Alternative Name domains
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkCommonNameBlacklisted() {
+
 		if (!strlen($this->csr_cn)) {
 			return false;
 		}
-		
+
 		$dns = explode('.', $this->csr_cn);
 		$count = count($dns);
-		
-		if (!$count) {
-			return false;
-		}
 
-		$this->csr_dns = $dns[$count-2].'.'.$dns[$count-1];
-
-		$whois = new Whois();
-
-		$this->whois_response = $whois->lookup($this->csr_dns);
-
-		if (strtolower($this->whois_response["regrinfo"]["registered"]) != 'yes') {
-			$this->setError($this->app->getText('APP_ERROR_5'));
-			return false;
-		}
+		$domain = $dns[$count-2].'.'.$dns[$count-1];
 
 		// Check if the DNS is blacklisted
 		$this->getBlackListUrls();
@@ -602,199 +742,35 @@ class validator_helper {
 
 				$blacklist_dns = $this->getBlackListDns(trim($blacklist_url));
 
-				if (in_array($this->csr_dns, $blacklist_dns)) {
+				if (in_array($domain, $blacklist_dns)) {
 					$check = true;
 					break;
 				}				
 			}
 			
 			if ($check) {
-				$this->setError($this->app->getText('APP_ERROR_13'));
 				return false;				
 			}
 		}
-
+		
 		return true;
 	}
 
 	/**
-	* Get the black list of URLs
-	*
-	* @return 	array of URLs on success, false on failure
-	*/
-	private function getBlackListDns($blacklist_url) {
-		
-		if (!strlen($blacklist_url)) {
-			return false;
-		}
-
-		// Initiate CURL POST call
-		$ch = curl_init();
-		
-		// Set Curl options
-		curl_setopt($ch, CURLOPT_URL, $blacklist_url);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-		curl_setopt($ch, CURLOPT_TIMEOUT, 60);    
-		
-		// Send the request
-		$blacklist_dns = curl_exec($ch);
-
-		curl_close($ch);
-		
-		return preg_split('/$\R?^/m', $blacklist_dns);		
-	}
-
-	/**
-	* Get the black list of URLs
-	*
-	* @return 	array of URLs on success, false on failure
-	*/
-	private function getBlackListUrls() {
-		
-		if (!file_exists(__ROOT__.'/conf/blacklist.txt')) {
-			$this->setError('Blacklist file does not exist!');
-			return false;
-		}
-
-		// Read the black list URLs file and set it in a array
-		$filename = __ROOT__.'/conf/blacklist.txt';
-
-		$handle = fopen($filename, "r");
-
-		if ($handle) {
-
-			$this->blacklist_urls = array();
-			
-			while (!feof($handle)) {
-				$buffer = fgets($handle, 4096);
-				$this->blacklist_urls[] = $buffer;
-			}
-
-			fclose($handle);
-		}		
-
-		return true;
-	}
-
-	/**
-	* Check the Organisation of the request
+	* Check the Subject Alternative Name domains
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function checkOrganisation() {
-		
-		if (!strlen($this->csr_o)) {
-			$this->setError($this->app->getText('APP_ERROR_6'));
-			return false;
-		}
+	private function checkSanBlacklisted() {
 
-		return true;
-	}
-
-	/**
-	* Check the Locality and the State of the request
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkLocalityAndState() {
-
-		if (!strlen($this->csr_l.$this->csr_s)) {
-			$this->setError($this->app->getText('APP_ERROR_7'));
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
-	* Check the Country of the request
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkCountry() {
-
-		if (!strlen($this->csr_c)) {
-			$this->setError($this->app->getText('APP_ERROR_8'));
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
-	* Check the Email of the request
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkEmail() {
-
-		if (strlen($this->csr_email)) {
-			$this->setError($this->app->getText('APP_ERROR_15'));
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
-	* Check the Subject Alternative Name of the request
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkSubjectAlternativeName() {
-
-		// The SAN must contain at least 1 entry
-		if (!strlen($this->csr_san)) {
-			$this->setError($this->app->getText('APP_ERROR_9'));
-			return false;
-		}
-		
-		$sans = explode(',', $this->csr_san);
-
-		// Maximum of SAN reach
-		if (count($sans) > $this->san_entries_max) {
-			$this->setError($this->app->getText('APP_ERROR_10'));
-			return false;
-			
-		}
-		
-		// One of the SAN entries must correspond to the common name.
-		if (!in_array($this->csr_cn, $sans)) {
-			$this->setError($this->app->getText('APP_ERROR_11'));
-			return false;			
-		}
-
-		// Internal FQDNs, reserved IP addresses and .local domains are strict forbidden.
-		$whois = new Whois();
-		
-		$check = true;
-		$san_dns_array = array();
-		foreach($sans as $san) {
-
-			$dns = explode('.', $san);
-			$count = count($dns);
-
-			$san_dns = $dns[$count-2].'.'.$dns[$count-1];
-			$san_dns_array[] = $san_dns;
-			$whois_response = $whois->lookup($san_dns);
-
-			if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
-				$this->setError($this->app->getText('APP_ERROR_12'));
-				$check = false;
-				break;
-			}
-		}
-		
-		if (!$check) {
+		if (!count($this->csr_domains)) {
 			return false;
 		}
 
 		// Check if the DNS is blacklisted
-		/*
 		$this->getBlackListUrls();
-		
-		if (count($this->blacklist_urls) && count($san_dns_array)) {
+
+		if (count($this->blacklist_urls)) {
 			
 			$check = false;
 			foreach($this->blacklist_urls as $blacklist_url) {
@@ -805,8 +781,8 @@ class validator_helper {
 
 				$blacklist_dns = $this->getBlackListDns(trim($blacklist_url));
 
-				foreach($san_dns_array as $san_dns) {
-					if (in_array($san_dns, $blacklist_dns)) {
+				foreach($this->csr_domains as $domain) {
+					if (in_array($domain, $blacklist_dns)) {
 						$check = true;
 						break;
 					}
@@ -818,11 +794,9 @@ class validator_helper {
 			}
 			
 			if ($check) {
-				$this->setError($this->app->getText('APP_ERROR_14'));
 				return false;				
 			}
 		}
-		*/
 
 		return true;
 	}
@@ -928,34 +902,105 @@ class validator_helper {
 	}
 
 	/**
-	* Mobileid set the errors
+	* Get the black list of URLs
 	*
-	* @return 	boolean	true on success, false on failure
+	* @return 	array of URLs on success, false on failure
 	*/
-	private function setError($msg, $error_type = 'error') {
+	private function getBlackListDns($blacklist_url) {
 		
-		if (!strlen($msg)) {
+		if (!strlen($blacklist_url)) {
 			return false;
 		}
 
-		$this->response_error          = true;
-		$this->response_error_type     = $error_type;
-		$this->response_error_message  = $msg;
+		// Initiate CURL POST call
+		$ch = curl_init();
 		
+		// Set Curl options
+		curl_setopt($ch, CURLOPT_URL, $blacklist_url);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+		curl_setopt($ch, CURLOPT_TIMEOUT, 60);    
+		
+		// Send the request
+		$blacklist_dns = curl_exec($ch);
+
+		curl_close($ch);
+		
+		return preg_split('/$\R?^/m', $blacklist_dns);		
+	}
+
+	/**
+	* Get the black list of URLs
+	*
+	* @return 	array of URLs on success, false on failure
+	*/
+	private function getBlackListUrls() {
+		
+		if (!file_exists(__ROOT__.'/conf/blacklist.txt')) {
+			$this->setTest('Blacklist file does not exist!');
+			return false;
+		}
+
+		// Read the black list URLs file and set it in a array
+		$filename = __ROOT__.'/conf/blacklist.txt';
+
+		$handle = fopen($filename, "r");
+
+		if ($handle) {
+
+			$this->blacklist_urls = array();
+			
+			while (!feof($handle)) {
+				$buffer = fgets($handle, 4096);
+				$this->blacklist_urls[] = $buffer;
+			}
+
+			fclose($handle);
+		}		
+
 		return true;
 	}
 
 	/**
-	* Mobileid clean up the temporaries files
+	* Get CSR content from the form
+	*
+	* @return 	string CSR content on success, false on failure
+	*/
+	private function getDuration($time_start) {
+		
+		if (!$time_start) {
+			return false;
+		}
+
+		/* Calculate the request duration */
+		$time_end = microtime(true);
+
+		/* Calculate the request duration */
+		$this->duration = $time_end - $time_start;		
+	}
+
+	/**
+	* Validator set the errors
 	*
 	* @return 	boolean	true on success, false on failure
 	*/
-	private function setRequestSuccess() {
+	private function setTest($check, $result = false, $detail = '') {
 		
-		$this->response_error = false;
-		$this->response_error_type = false;
+		if (!strlen($check)) {
+			return false;
+		}
+		
+		$row = array();
+		$row["check"] = $check;
+		$row["result"] = $result;
+		
+		if (!$result) {
+			$row["detail"] = $detail;
+		}
 
-		return true;		
+		$this->response_checks[] = $row;
+		
+		return true;
 	}
 }
 ?>

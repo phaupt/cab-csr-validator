@@ -22,6 +22,12 @@ class validator_app {
 		if (isset($_GET['lang'])) {
 			$this->language = $_GET['lang'];
 		}
+
+		if (!strlen($this->language)) {
+			if (isset($_POST['lang'])) {
+				$this->language = $_POST['lang'];
+			}
+		}
 		
 		if (!strlen($this->language)) {
 			$this->language      = strtolower(substr($_SERVER['HTTP_ACCEPT_LANGUAGE'], 0, 2));

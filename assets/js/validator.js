@@ -1,6 +1,6 @@
 /**
  * @version     1.0.0
- * @package     mobileid-helper
+ * @package     cab-csr-validator
  * @copyright   Copyright (C) 2012. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE.md
  * @author      Swisscom (Schweiz AG)
@@ -9,11 +9,13 @@
 jQuery(document).ready(function() {
 	
 	// Remove value from the forms
-	jQuery('#submit_btn_remove').click(function() {
+	jQuery('#submit_btn_remove').click(function(e) {
+		e.preventDefault();
 		setRemoveFormValues();
 	});	
 
 	// Submit the form
+	/*
 	jQuery('#submit_btn_send').click(function() {		
 		prepareSubmit();
 		submitFormValues();
@@ -38,33 +40,38 @@ jQuery(document).ready(function() {
 
 		getDefaultMessage();
 	});
+	*/
 });
 
 function setRemoveFormValues() {
-	
+		
 	// Set form field empty
-	jQuery('#mid_phone').val('');
-	jQuery('#mid_msg').val('');
-	jQuery('#msg_result').html('');
+	jQuery('#csr_upload').val('');
+	jQuery('#csr_text').val('');
+	//jQuery('#msg_result').html('');
 
 	// Remove class for message result
+	/*
 	jQuery("#msg_result").removeClass("success");
 	jQuery("#msg_result").removeClass("error");
 	jQuery("#msg_result").removeClass("warning");
+	*/
 	
 	// Hide waiting, error & result messages
+	/*
 	jQuery('#msg_wait').hide();
 	jQuery('#msg_error').hide();
 	jQuery('#msg_result').hide();
+	*/
 	
 	// Check the default language
+	/*
 	jQuery('input[name="mid_lang"]').prop('checked', false);
 	jQuery("#mid_lang_"+jQuery('#mid_lang_default').val()).trigger("click");
-
-	// Set default message
-	getDefaultMessage();
+	*/
 }
 
+/*
 function prepareSubmit() {
 
 	// Show waiting message
@@ -141,19 +148,4 @@ function submitFormValues() {
 		}
 	});
 }
-
-function getDefaultMessage() {
-	
-	var checked_lang = jQuery('input:radio[name=mid_lang]:checked').val();
-	var ajax_url;
-	
-	ajax_url = 'form.php?request=default_msg';
-	ajax_url = ajax_url+'&lang='+checked_lang;
-
-	jQuery.ajax({
-		url: ajax_url,
-		success: function(data) {
-			jQuery("#mid_msg").attr("placeholder", data).placeholder();
-		}
-	});
-}
+*/

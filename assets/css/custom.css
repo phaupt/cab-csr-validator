@@ -7,3 +7,4 @@ h1{margin:0 0 30px;}
 .warning{background-image:url(../img/circle_yellow.png);}
 .error{background-image:url(../img/circle_red.png);}
 .success,.warning,.error{background-repeat:no-repeat;padding:0 0 0 72px;min-height:64px;}
+p.check{padding:15px;}
