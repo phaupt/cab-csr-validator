@@ -1,4 +1,0 @@
-http://www.joewein.net/dl/bl/dom-bl-base.txt
-http://www.joewein.net/dl/bl/dom-bl.txt
-https://wiki.mozilla.org/MediaWiki:Spam-blacklist
-https://www.un.org/sc/suborg/sites/www.un.org.sc.suborg/files/1267.xml

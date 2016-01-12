@@ -41,9 +41,8 @@ if ($validator->checkRequest()) {
 						<div class="page-header">
 							<h1><?php echo $app->getText('APP_TITLE'); ?></h1>
 						</div>
-						<?php if ($response_success) { ?>
 						<table class="table table-bordered">
-							<caption><?php echo $app->getText('APP_REQUEST_SUBJECT_SUBJECT'); ?></caption>
+							<h2><?php echo $app->getText('APP_REQUEST_SUBJECT_SUBJECT'); ?></h2>
 							<thead>
 								<tr>
 									<th><?php echo $app->getText('APP_REQUEST_SUBJECT_RDN'); ?></th>
@@ -121,23 +120,29 @@ if ($validator->checkRequest()) {
 								<?php } ?>
 							</tbody>
 						</table>
-						<?php } ?>
 						<div>
-						<?php foreach($validator->response_checks as $response_check) { ?>
+							<h2><?php echo $app->getText('APP_REQUEST_CHECKS'); ?></h2>
+							<?php foreach($validator->response_checks as $response_check) { ?>
 							<p class="check <?php echo $response_check["result"] ? 'bg-success' : 'bg-danger'; ?>">
 								<?php echo '<strong>'.$response_check["check"].'</strong>, '; ?>
-								<em>
-								<?php if (!$response_check["result"]) { ?>
-								<?php echo $app->getText('APP_SUBMIT_CHECK_FAILED'); ?>
-								<?php } else { ?>
-								<?php echo $app->getText('APP_SUBMIT_CHECK_PASSED'); ?>
-								<?php } ?>
-								</em>
+								<em><?php echo $response_check["result_msg"]; ?></em>
 								<?php if (strlen($response_check["detail"])) { ?>
 								<?php echo ', '.$response_check["detail"]; ?>
 								<?php } ?>
 							</p>
-						<?php } ?>
+							<?php } ?>
+						</div>
+						<div>
+							<h2><h2><?php echo $app->getText('APP_REQUEST_RESULTS'); ?></h2></h2>
+							<?php foreach($validator->response_results as $response_result) { ?>
+							<p class="check bg-info">
+								<?php echo '<strong>'.$response_result["check"].'</strong>, '; ?>
+								<em><?php echo $response_result["result_msg"]; ?></em>
+								<?php if (strlen($response_result["detail"])) { ?>
+								<?php echo ', '.$response_result["detail"]; ?>
+								<?php } ?>
+							</p>
+							<?php } ?>
 						</div>
 						<footer>Swisscom (Schweiz) AG <cite title="Source Title">CSR Validator</cite></footer>
 					</div>

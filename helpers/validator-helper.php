@@ -68,14 +68,15 @@ class validator_helper {
 	public $csr_email;
 	public $csr_phone;
 	public $csr_keysize;
-	public $csr_sans;
-	public $csr_domains;
+	public $csr_sans = false;
+	public $csr_domains = false;
 	
 	/* Whois */
 	protected $whois_response;
 	
 	/* Blacklist URLs */
 	protected $blacklist_urls;
+	protected $blacklist_debian_urls;
 
 	/* Response signature */
 	public $response_signature_validity;
@@ -83,6 +84,7 @@ class validator_helper {
 
 	/* Response logs */
 	public $response_checks = array();	// Error message
+	public $response_results = array();
 
 	/* Duration */
 	public $duration;					// Duration
@@ -229,28 +231,58 @@ class validator_helper {
 		// the CSR should not contain any e-mail address.
 		$this->setTest('E-mail not present', $this->checkEmail(), $this->app->getText('APP_ERROR_10'));
 
+		$san_value = true;
+
 		if (!$this->getCsrSanValues()) {
-			$this->getDuration($time_start);
-			return false;
+			$san_value = false;
+			//$this->getDuration($time_start);
+			//return false;
 		}
 
 		// The X.509v3 Extension Subject Alternative Name (SAN) must be available
-		$this->setTest('Subject Alternative Name (SAN) mandatory', $this->checkSanAvailable(), $this->app->getText('APP_ERROR_12'));
+		$this->setTest('Subject Alternative Name (SAN) mandatory', $san_value ? $this->checkSanAvailable() : false, $this->app->getText('APP_ERROR_12'));
 
 		// The SAN must contain at least 1 entry and a configurable number of maximal entries.
-		$this->setTest('Subject Alternative Name (SAN) entries', $this->checkSanEntries(), str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
+		$this->setTest('Subject Alternative Name (SAN) entries', $san_value ? $this->checkSanEntries() : false, str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
 
 		// One of the SAN entries must correspond to the common name.
-		$this->setTest('Subject Alternative Name (SAN) entry must correspond to CN', $this->checkSanWithCn(), $this->app->getText('APP_ERROR_14'));
+		$this->setTest('Subject Alternative Name (SAN) entry must correspond to CN', $san_value ? $this->checkSanWithCn() : false, $this->app->getText('APP_ERROR_14'));
 
 		// The SAN's domain(s) must be a valid FQDN/IP address (verifiable through WhoIS lookup).
-		$this->setTest('Subject Alternative Name (SAN) domains valid FQDN', $this->checkSanWhois(), $this->app->getText('APP_ERROR_15'));
+		$this->setTest('Subject Alternative Name (SAN) domains valid FQDN', $san_value ? $this->checkSanWhois() : false, $this->app->getText('APP_ERROR_15'));
 
 		// The domain of the CN is NOT blacklisted.
-		$this->setTest('Common Name (CN) domain blacklisted', $this->checkCommonNameBlacklisted(), $this->app->getText('APP_ERROR_16'));
+		$this->setTest('Common Name (CN) domain blacklisted', $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_16'));
 
 		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
-		$this->setTest('Subject Alternative Name (SAN) domains blacklisted', $this->checkSanBlacklisted(), $this->app->getText('APP_ERROR_17'));
+		$this->setTest('Subject Alternative Name (SAN) domains blacklisted', $san_value ? $this->checkSanBlacklisted() : false, $this->app->getText('APP_ERROR_17'));
+
+		// Is wildcard present?
+		$row = array();
+		$row["check"] = 'Wildcard present';
+		$row["result"] = true;
+
+		if ($this->checkWildCard()) {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_PRESENT');
+		} else {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_PRESENT');			
+		}
+
+		$this->response_checks[] = $row;
+
+		// Compliant to CAB Requirements
+		$this->setResult('Compliant to CAB Requirements', $this->checkCabRequirements(), '', $this->app->getText('APP_TEST_1'));
+
+		// Compliant to CAB EV Requirements
+		$this->setResult('Compliant to CAB EV Requirements', $this->checkCabEvRequirements(), '', $this->app->getText('APP_TEST_2'));
+
+		// Valid for Swisscom SSL Smaragd
+		$result = $this->checkSwisscomSslSmaragd();
+		$this->setResult('Valid for Swisscom SSL Smaragd', $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_3'));
+
+		// Valid for Swisscom EV SSL Quarz
+		$result = $this->checkSwisscomEvSslQuarz();
+		$this->setResult('Valid for Swisscom EV SSL Quarz', $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_4'));
 
 		// Set the duration of the request
 		$this->getDuration($time_start);
@@ -378,8 +410,6 @@ class validator_helper {
 			return false;
 		}
 		
-		// Weak Debian key to be added..
-		
 		return true;
 	}
 
@@ -390,9 +420,47 @@ class validator_helper {
 	*/
 	private function checkWeakDebiankey() {
 		
-		// Weak Debian key to be added..
+		if (!file_exists(__ROOT__.'/conf/debian_blacklist.db')) {
+			$this->setTest('Requirements (debian_blacklist)', false, 'File debian_blacklist.db not found!');
+			return true;
+		}
+
+		$cert_details = openssl_pkey_get_details(openssl_csr_get_public_key($this->csr_content));
 		
-		return true;
+		if (!isset($cert_details['rsa'])) {
+			return true;
+		}
+
+		// Read the debian black list URLs file
+		$handle = fopen(__ROOT__.'/conf/debian_blacklist.db', "r");
+
+		// Weak debian key check
+		$bin_modulus = $cert_details['rsa']['n'];
+
+		# blacklist format requires sha1sum of output from "openssl x509 -noout -modulus" including the Modulus= and newline.
+		# create the blacklist:
+		# https://packages.debian.org/source/squeeze/openssl-blacklist
+		# svn co svn://svn.debian.org/pkg-openssl/openssl-blacklist/
+		# find openssl-blacklist/trunk/blacklists/ -iname "*.db" -exec cat {} >> unsorted_blacklist.db \;
+		# sort -u unsorted_blacklist.db > debian_blacklist.db
+
+		$mod_sha1sum = sha1("Modulus=" . strtoupper(bin2hex($bin_modulus)) . "\n");
+		$key_in_blacklist = false;
+
+		while (($buffer = fgets($handle)) !== false) {
+			if (strpos($buffer, $mod_sha1sum) !== false) {
+				$key_in_blacklist = true;
+				break; 
+			}
+		}
+		
+		fclose($handle);
+
+		if ($key_in_blacklist == false) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
@@ -504,21 +572,19 @@ class validator_helper {
 		if (!$this->sendRequestToComodo()) {
 			return false;
 		}
-		
-		if (!strlen($this->comodo_response[16])) {
-			return false;
-		}
 
 		// Format the Subject Alternative Name
 		$san = explode('=', $this->comodo_response[16]);
-
+		
 		if (!strlen($san[1])) {
 			return false;
 		}
 
 		$this->csr_sans = explode(',', $san[1]);
 		
-		$this->getCsrDomainsfromSans();
+		if (!$this->getCsrDomainsfromSans()) {
+			return false;
+		}
 		
 		return true;
 	}
@@ -802,6 +868,119 @@ class validator_helper {
 	}
 
 	/**
+	* Check if a wildcard is present
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkWildCard() {
+			
+		if (strstr($this->csr_cn, '*')) {
+			return true;
+		}
+		
+		if (in_array('*', $this->csr_sans)) {
+			return true;
+		}
+		
+		return false;
+	}
+
+	/**
+	* Check the CAB EV requirements
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkCabRequirements() {
+		
+		$return = true;
+		
+		foreach($this->response_checks as $check) {
+			if (in_array(false, $check)) {
+				$return = false;
+				break;
+			}
+		}
+		
+		return $return;
+	}
+
+	/**
+	* Check the CAB EV requirements
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkCabEvRequirements() {
+
+		if (!$this->checkCabRequirements()) {
+			return false;
+		}
+
+		if (in_array('*', $this->csr_sans)) {
+			return false;
+		}
+		
+		return true;
+	}
+
+	/**
+	* Check the Swisscom SSL Smaragd
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkSwisscomSslSmaragd() {
+		
+		$result = array();
+
+		if (!$this->checkCabRequirements()) {
+			$result["result"] = false;
+			return $result;
+		}
+		
+		$result["result"] = true;
+
+		$result["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_YES');
+		
+		if (in_array('*', $this->csr_sans)) {
+			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_WILDCARD');
+		} else {
+			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_NO_WILDCARD');			
+		}
+		
+		$result["result_msg"] .= ' '.str_replace('%s', count($this->csr_domains), $this->app->getText('APP_SUBMIT_CHECK_DOMAINS'));
+		
+		return $result;
+	}
+
+	/**
+	* Check the Swisscom EV SSL Quarz
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkSwisscomEvSslQuarz() {
+
+		$result = array();
+
+		if (!$this->checkCabEvRequirements()) {
+			$result["result"] = false;
+			return $result;
+		}
+		
+		$result["result"] = true;
+
+		$result["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_YES');
+		
+		if (in_array('*', $this->csr_sans)) {
+			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_WILDCARD');
+		} else {
+			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_NO_WILDCARD');			
+		}
+		
+		$result["result_msg"] .= ' '.str_replace('%s', count($this->csr_domains), $this->app->getText('APP_SUBMIT_CHECK_DOMAINS'));
+		
+		return $result;		
+	}
+
+	/**
 	* Get the error message from Comod API
 	*
 	* @return 	string Comodo error message
@@ -936,15 +1115,13 @@ class validator_helper {
 	*/
 	private function getBlackListUrls() {
 		
-		if (!file_exists(__ROOT__.'/conf/blacklist.txt')) {
-			$this->setTest('Blacklist file does not exist!');
+		if (!file_exists(__ROOT__.'/conf/dns_blacklist.db')) {
+			$this->setTest('Requirements (dns_blacklist)', false, 'File dns_blacklist.db not found!');
 			return false;
 		}
 
 		// Read the black list URLs file and set it in a array
-		$filename = __ROOT__.'/conf/blacklist.txt';
-
-		$handle = fopen($filename, "r");
+		$handle = fopen(__ROOT__.'/conf/dns_blacklist.db', "r");
 
 		if ($handle) {
 
@@ -993,12 +1170,45 @@ class validator_helper {
 		$row = array();
 		$row["check"] = $check;
 		$row["result"] = $result;
+		$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_PASSED');
 		
 		if (!$result) {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_FAILED');
 			$row["detail"] = $detail;
 		}
 
 		$this->response_checks[] = $row;
+		
+		return true;
+	}
+
+	/**
+	* Validator set the result
+	*
+	* @return 	boolean	true on success, false on failure
+	*/
+	private function setResult($check, $result = false, $result_msg = '', $detail = '') {
+		
+		if (!strlen($check)) {
+			return false;
+		}
+		
+		$row = array();
+		$row["check"] = $check;
+		$row["result"] = $result;
+		
+		if (!strlen($result_msg)) {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_YES');
+		} else {
+			$row["result_msg"] = $result_msg;
+		}
+		
+		if (!$result) {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NO');
+			$row["detail"] = $detail;
+		}
+
+		$this->response_results[] = $row;
 		
 		return true;
 	}
