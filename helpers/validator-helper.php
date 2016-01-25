@@ -254,11 +254,23 @@ class validator_helper {
 		// The domain of the CN is NOT blacklisted.
 		$this->setTest('Common Name (CN) domain blacklisted', $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_16'));
 
+		$row = array();
+
 		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
-		$this->setTest('Subject Alternative Name (SAN) domains blacklisted', $san_value ? $this->checkSanBlacklisted() : false, $this->app->getText('APP_ERROR_17'));
+		$row["check"] = 'Subject Alternative Name (SAN) domains blacklisted';
+		$row["result"] = true;
+
+		if ($this->checkSanBlacklisted()) {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_BLACKLISTED');
+		} else {
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_BLACKLISTED');			
+		}
+
+		$this->response_checks[] = $row;
+
+		//$this->setTest('Subject Alternative Name (SAN) domains blacklisted', $san_value ? $this->checkSanBlacklisted() : false, $this->app->getText('APP_ERROR_17'));
 
 		// Is wildcard present?
-		$row = array();
 		$row["check"] = 'Wildcard present';
 		$row["result"] = true;
 

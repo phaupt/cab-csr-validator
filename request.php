@@ -45,7 +45,7 @@ if ($validator->checkRequest()) {
 							<h2><?php echo $app->getText('APP_REQUEST_SUBJECT_SUBJECT'); ?></h2>
 							<thead>
 								<tr>
-									<th><?php echo $app->getText('APP_REQUEST_SUBJECT_RDN'); ?></th>
+									<th class="col-md-5"><?php echo $app->getText('APP_REQUEST_SUBJECT_RDN'); ?></th>
 									<th><?php echo $app->getText('APP_REQUEST_SUBJECT_VALUE'); ?></th>
 								</tr>
 							</thead>
@@ -108,7 +108,18 @@ if ($validator->checkRequest()) {
 								<?php $i++; ?>						
 								<?php } ?>
 								<?php } ?>
-								<?php if (count($validator->csr_domains)) { ?>
+							</tbody>
+						</table>
+						<?php if (count($validator->csr_domains)) { ?>
+						<table class="table table-bordered">
+							<h2><?php echo $app->getText('APP_REQUEST_DOMAINS'); ?></h2>
+							<thead>
+								<tr>
+									<th class="col-md-5"><?php echo $app->getText('APP_REQUEST_SUBJECT_RDN'); ?></th>
+									<th><?php echo $app->getText('APP_REQUEST_SUBJECT_VALUE'); ?></th>
+								</tr>
+							</thead>
+							<tbody>
 								<?php $i = 1; ?>
 								<?php foreach($validator->csr_domains as $domain) { ?>
 								<tr>
@@ -117,40 +128,73 @@ if ($validator->checkRequest()) {
 								</tr>
 								<?php $i++; ?>						
 								<?php } ?>
+							</tbody>
+						</table>
+						<?php } ?>
+						<table class="table table-bordered">
+							<h2><?php echo $app->getText('APP_REQUEST_CHECKS'); ?></h2>
+							<thead>
+								<tr>
+									<th class="col-md-1"><?php echo $app->getText('APP_REQUEST_TEST_HEADER_1'); ?></th>
+									<th class="col-md-4"><?php echo $app->getText('APP_REQUEST_TEST_HEADER_2'); ?></th>
+									<th><?php echo $app->getText('APP_REQUEST_TEST_HEADER_3'); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php $i = 1; ?>
+								<?php foreach($validator->response_checks as $response_check) { ?>
+								<tr class="<?php echo $response_check["result"] ? 'success' : 'danger'; ?>">
+									<td><?php echo $i; ?></td>
+									<td><?php echo '<strong>'.$response_check["check"].'</strong>'; ?></td>
+									<td>
+										<em><?php echo $response_check["result_msg"]; ?></em>
+										<?php if (strlen($response_check["detail"])) { ?>
+										<?php echo ', '.$response_check["detail"]; ?>
+										<?php } ?>
+									</td>
+								</tr>
+								<?php $i++; ?>
 								<?php } ?>
 							</tbody>
 						</table>
-						<div>
-							<h2><?php echo $app->getText('APP_REQUEST_CHECKS'); ?></h2>
-							<?php foreach($validator->response_checks as $response_check) { ?>
-							<p class="check <?php echo $response_check["result"] ? 'bg-success' : 'bg-danger'; ?>">
-								<?php echo '<strong>'.$response_check["check"].'</strong>, '; ?>
-								<em><?php echo $response_check["result_msg"]; ?></em>
-								<?php if (strlen($response_check["detail"])) { ?>
-								<?php echo ', '.$response_check["detail"]; ?>
+						<table class="table table-bordered">
+							<h2><?php echo $app->getText('APP_REQUEST_RESULTS'); ?></h2>
+							<thead>
+								<tr>
+									<th class="col-md-1"><?php echo $app->getText('APP_REQUEST_TEST_HEADER_1'); ?></th>
+									<th class="col-md-4"><?php echo $app->getText('APP_REQUEST_TEST_HEADER_2'); ?></th>
+									<th><?php echo $app->getText('APP_REQUEST_TEST_HEADER_3'); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php $i = 1; ?>
+								<?php foreach($validator->response_results as $response_result) { ?>
+								<tr class="info">
+									<td><?php echo $i; ?></td>
+									<td><?php echo '<strong>'.$response_result["check"].'</strong>'; ?></td>
+									<td>
+										<em><?php echo $response_result["result_msg"]; ?></em>
+										<?php if (strlen($response_result["detail"])) { ?>
+										<?php echo ', '.$response_result["detail"]; ?>
+										<?php } ?>
+									</td>
+								</tr>
+								<?php $i++; ?>
 								<?php } ?>
-							</p>
-							<?php } ?>
-						</div>
-						<div>
-							<h2><h2><?php echo $app->getText('APP_REQUEST_RESULTS'); ?></h2></h2>
-							<?php foreach($validator->response_results as $response_result) { ?>
-							<p class="check bg-info">
-								<?php echo '<strong>'.$response_result["check"].'</strong>, '; ?>
-								<em><?php echo $response_result["result_msg"]; ?></em>
-								<?php if (strlen($response_result["detail"])) { ?>
-								<?php echo ', '.$response_result["detail"]; ?>
-								<?php } ?>
-							</p>
-							<?php } ?>
-						</div>
-						<footer>Swisscom (Schweiz) AG <cite title="Source Title">CSR Validator</cite></footer>
+							</tbody>
+						</table>
 					</div>
 				</div>
 			</div>
 		</div>
+		<div class="container">     
+			<div class="span12 centered-text"> 
+				<a class="btn btn-default btn-lg" href="index.php" role="button"><?php echo $app->getText('APP_REQUEST_BACK'); ?></a>
+			</div>
+		</div>
 		<div class="footer">
 			<div class="col-md-6 col-md-offset-1 container">
+				<footer>Swisscom (Schweiz) AG <cite title="Source Title">CSR Validator</cite></footer>
 				<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
 			</div>
 		</div>
