@@ -53,8 +53,11 @@ $app = new validator_app();
 							<div class="form-group">
 								<div class="col-md-4">
 									<label class="col-md-2 col-md-offset-1 control-label" for="s"></label>
-									<button class="btn btn-primary" id="submit_btn_remove"><?php echo $app->getText('APP_SUBMIT_BTN_REMOVE'); ?></button>
-									<button type="submit" class="btn btn-primary"><?php echo $app->getText('APP_SUBMIT_BTN_SEND'); ?></button>
+									<div id="button_zone">
+										<button class="btn btn-primary" id="submit_btn_remove"><?php echo $app->getText('APP_SUBMIT_BTN_REMOVE'); ?></button>
+										<button class="btn btn-primary" id="submit_btn_send" type="submit"><?php echo $app->getText('APP_SUBMIT_BTN_SEND'); ?></button>
+									</div>
+									<div id="spinner"></div>
 								</div>
 							</div>
 							<input type="hidden" value="<?php echo $app->language; ?>" name="lang" />
