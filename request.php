@@ -110,7 +110,7 @@ if ($validator->checkRequest()) {
 								<?php } ?>
 							</tbody>
 						</table>
-						<?php if (count($validator->csr_domains)) { ?>
+						<?php if ($validator->csr_domains) { ?>
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_DOMAINS'); ?></h2>
 							<thead>
@@ -124,7 +124,9 @@ if ($validator->checkRequest()) {
 								<?php foreach($validator->csr_domains as $domain) { ?>
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_DOMAIN').' '.$i; ?></td>
-									<td><?php echo $domain; ?></td>
+									<td>
+										<a href="<?php echo strlen($domain["server"]) ? 'http://'.$domain["server"] : ''; ?>" target="_blank" rel="tooltip" data-html="true" data-placement="auto" title="<?php echo $domain["whois"]; ?>"><?php echo $domain["domain"]; ?></a>
+									</td>
 								</tr>
 								<?php $i++; ?>						
 								<?php } ?>
@@ -169,7 +171,7 @@ if ($validator->checkRequest()) {
 							<tbody>
 								<?php $i = 1; ?>
 								<?php foreach($validator->response_results as $response_result) { ?>
-								<tr class="info">
+								<tr class="<?php echo $response_result["result"] ? 'success' : 'danger'; ?>">
 									<td><?php echo $i; ?></td>
 									<td><?php echo '<strong>'.$response_result["check"].'</strong>'; ?></td>
 									<td>
@@ -198,6 +200,10 @@ if ($validator->checkRequest()) {
 				<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
 			</div>
 		</div>
+		<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+		<script src="assets/js/bootstrap.min.js"></script>
+		<script src="assets/js/validator.js"></script>
 	</body>
 </html>
 

@@ -8,6 +8,8 @@
 
 jQuery(document).ready(function() {
 	
+	jQuery("[rel=tooltip]").tooltip({html:true});
+	
 	// Remove value from the forms
 	jQuery('#submit_btn_remove').click(function(e) {
 		e.preventDefault();

@@ -197,10 +197,10 @@ class validator_helper {
 		$time_start = microtime(true);
 
 		// Get the CSR content
-		$this->setTest('Valid CSR content', $this->getCsrContent(), $this->app->getText('APP_ERROR_1'));
+		$this->setTest($this->app->getText('APP_REQUEST_1'), $this->getCsrContent(), $this->app->getText('APP_ERROR_1'));
 
 		// Check if the CSR is a valid blcok
-		$this->setTest('Valid PKCS#10 block', $this->checkValidBlock(), $this->app->getText('APP_ERROR_2'));
+		$this->setTest($this->app->getText('APP_REQUEST_2'), $this->checkValidBlock(), $this->app->getText('APP_ERROR_2'));
 		
 		if (!$this->getCsrSubject()) {
 			$this->getDuration($time_start);
@@ -208,56 +208,60 @@ class validator_helper {
 		}
 
 		// Check the key size, should be only 2048 bits
-		$this->setTest('Key size', $this->checkKeySize(), $this->app->getText('APP_ERROR_3'));
+		$this->setTest($this->app->getText('APP_REQUEST_3'), $this->checkKeySize(), $this->app->getText('APP_ERROR_3'));
 
 		// Check the weak debian key
-		$this->setTest('Weak Debian key', $this->checkWeakDebiankey(), $this->app->getText('APP_ERROR_4'));
+		$this->setTest($this->app->getText('APP_REQUEST_4'), $this->checkWeakDebiankey(), $this->app->getText('APP_ERROR_4'));
 
 		// The Common Name (CN) must be available.
-		$this->setTest('Common Name (CN) available', $this->checkCommonNameAvailable(), $this->app->getText('APP_ERROR_5'));
+		$this->setTest($this->app->getText('APP_REQUEST_5'), $this->checkCommonNameAvailable(), $this->app->getText('APP_ERROR_5'));
 
 		// The CN must be a valid FQDN/IP address (verifiable through WhoIS lookup).
-		$this->setTest('Common Name (CN) valid FQDN', $this->checkCommonNameWhois(), $this->app->getText('APP_ERROR_6'));
-
-		// The field Organization (O) is MANDATORY.
-		$this->setTest('Organisation (O) mandatory', $this->checkOrganisation(), $this->app->getText('APP_ERROR_7'));
-		
-		// At least ONE of the following fields MUST be present: Locality (L) or State (S). It is allowed to include both.
-		$this->setTest('Locality (L) or State (S) mandatory', $this->checkLocalityAndState(), $this->app->getText('APP_ERROR_8'));
-
-		// The field country (C) is MANDATORY.
-		$this->setTest('Country (C) mandatory', $this->checkCountry(), $this->app->getText('APP_ERROR_9'));
-
-		// the CSR should not contain any e-mail address.
-		$this->setTest('E-mail not present', $this->checkEmail(), $this->app->getText('APP_ERROR_10'));
+		//$this->setTest($this->app->getText('APP_REQUEST_6'), $this->checkCommonNameWhois(), $this->app->getText('APP_ERROR_6'));
 
 		$san_value = true;
 
 		if (!$this->getCsrSanValues()) {
 			$san_value = false;
-			//$this->getDuration($time_start);
-			//return false;
 		}
 
+		// One of the SAN entries must correspond to the common name.
+		$this->setTest($this->app->getText('APP_REQUEST_7'), $san_value ? $this->checkSanWithCn() : false, $this->app->getText('APP_ERROR_7'));
+
+		// The field Organization (O) is MANDATORY.
+		$this->setTest($this->app->getText('APP_REQUEST_8'), $this->checkOrganisation(), $this->app->getText('APP_ERROR_8'));
+		
+		// At least ONE of the following fields MUST be present: Locality (L) or State (S). It is allowed to include both.
+		$this->setTest($this->app->getText('APP_REQUEST_9'), $this->checkLocalityAndState(), $this->app->getText('APP_ERROR_9'));
+
+		// The field country (C) is MANDATORY.
+		$this->setTest($this->app->getText('APP_REQUEST_10'), $this->checkCountry(), $this->app->getText('APP_ERROR_10'));
+
+		// the CSR should not contain any e-mail address.
+		$this->setTest($this->app->getText('APP_REQUEST_11'), $this->checkEmail(), $this->app->getText('APP_ERROR_11'));
+
 		// The X.509v3 Extension Subject Alternative Name (SAN) must be available
-		$this->setTest('Subject Alternative Name (SAN) mandatory', $san_value ? $this->checkSanAvailable() : false, $this->app->getText('APP_ERROR_12'));
+		$this->setTest($this->app->getText('APP_REQUEST_12'), $san_value ? $this->checkSanAvailable() : false, $this->app->getText('APP_ERROR_12'));
 
 		// The SAN must contain at least 1 entry and a configurable number of maximal entries.
-		$this->setTest('Subject Alternative Name (SAN) entries', $san_value ? $this->checkSanEntries() : false, str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
+		$this->setTest($this->app->getText('APP_REQUEST_13'), $san_value ? $this->checkSanEntries() : false, str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
 
-		// One of the SAN entries must correspond to the common name.
-		$this->setTest('Subject Alternative Name (SAN) entry must correspond to CN', $san_value ? $this->checkSanWithCn() : false, $this->app->getText('APP_ERROR_14'));
+		// Subject Alternative Name (SAN) does not contain reserved IP address(es) in the RFC 1918 & 4153 range
+		$this->setTest($this->app->getText('APP_REQUEST_19'), $san_value ? $this->checkSanReservedIp() : false, $this->app->getText('APP_ERROR_19'));
 
 		// The SAN's domain(s) must be a valid FQDN/IP address (verifiable through WhoIS lookup).
-		$this->setTest('Subject Alternative Name (SAN) domains valid FQDN', $san_value ? $this->checkSanWhois() : false, $this->app->getText('APP_ERROR_15'));
+		$this->setTest($this->app->getText('APP_REQUEST_14'), $san_value ? $this->checkSanWhois() : false, $this->app->getText('APP_ERROR_14'));
+
+		// Subject Alternative Name (SAN) must be available and be present only once
+		$this->setTest($this->app->getText('APP_REQUEST_21'), $san_value ? $this->checkSanOnce() : false, $this->app->getText('APP_ERROR_21'));
 
 		// The domain of the CN is NOT blacklisted.
-		$this->setTest('Common Name (CN) domain blacklisted', $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_16'));
+		//$this->setTest($this->app->getText('APP_REQUEST_15'), $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_15'));
 
 		$row = array();
 
 		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
-		$row["check"] = 'Subject Alternative Name (SAN) domains blacklisted';
+		$row["check"] = $this->app->getText('APP_REQUEST_16');
 		$row["result"] = true;
 
 		if ($this->checkSanBlacklisted()) {
@@ -268,10 +272,10 @@ class validator_helper {
 
 		$this->response_checks[] = $row;
 
-		//$this->setTest('Subject Alternative Name (SAN) domains blacklisted', $san_value ? $this->checkSanBlacklisted() : false, $this->app->getText('APP_ERROR_17'));
+		//$this->setTest($this->app->getText('APP_REQUEST_17'), $san_value ? $this->checkSanBlacklisted() : false, $this->app->getText('APP_ERROR_17'));
 
 		// Is wildcard present?
-		$row["check"] = 'Wildcard present';
+		$row["check"] = $this->app->getText('APP_REQUEST_18');
 		$row["result"] = true;
 
 		if ($this->checkWildCard()) {
@@ -283,18 +287,18 @@ class validator_helper {
 		$this->response_checks[] = $row;
 
 		// Compliant to CAB Requirements
-		$this->setResult('Compliant to CAB Requirements', $this->checkCabRequirements(), '', $this->app->getText('APP_TEST_1'));
+		$this->setResult($this->app->getText('APP_RESULT_1'), $this->checkCabRequirements(), '', $this->app->getText('APP_TEST_1'));
 
 		// Compliant to CAB EV Requirements
-		$this->setResult('Compliant to CAB EV Requirements', $this->checkCabEvRequirements(), '', $this->app->getText('APP_TEST_2'));
+		//$this->setResult($this->app->getText('APP_RESULT_2'), $this->checkCabEvRequirements(), '', $this->app->getText('APP_TEST_2'));
 
 		// Valid for Swisscom SSL Smaragd
 		$result = $this->checkSwisscomSslSmaragd();
-		$this->setResult('Valid for Swisscom SSL Smaragd', $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_3'));
+		$this->setResult($this->app->getText('APP_RESULT_3'), $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_3'));
 
 		// Valid for Swisscom EV SSL Quarz
-		$result = $this->checkSwisscomEvSslQuarz();
-		$this->setResult('Valid for Swisscom EV SSL Quarz', $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_4'));
+		//$result = $this->checkSwisscomEvSslQuarz();
+		//$this->setResult($this->app->getText('APP_RESULT_4'), $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_4'));
 
 		// Set the duration of the request
 		$this->getDuration($time_start);
@@ -365,7 +369,7 @@ class validator_helper {
 			return false;
 		}
 
-		foreach ($subject as $key => $value) {
+		foreach ($subject as $key => $value) {			
 			switch (strtolower($key)) {
 				case 'c':
 					$this->csr_c = $value;
@@ -399,12 +403,13 @@ class validator_helper {
 					$this->csr_cn = $value;
 					break;
 
+				case 'emailaddress':
 				case 'mail':
 					$this->csr_email = $value;
 					break;
 			}
 		}
-		
+
 		return true;
 	}
 
@@ -623,7 +628,7 @@ class validator_helper {
 			$san_dns = $dns[$count-2].'.'.$dns[$count-1];
 			
 			if ($san_dns != $san_dns_temp) {
-				$this->csr_domains[] = $san_dns;
+				$this->csr_domains[]["domain"] = $san_dns;
 				$san_dns_temp = $san_dns;
 			}
 		}
@@ -693,7 +698,7 @@ class validator_helper {
 		$this->comodo_response = preg_split('/$\R?^/m', $this->comodo_response_text);
 		
 		if (!is_array($this->comodo_response) || !count($this->comodo_response)) {
-			$this->setTest('Get Subject Alternative Name (SAN)', false, $this->app->getText('APP_ERROR_COMODO_API'));
+			$this->setTest($this->app->getText('APP_REQUEST_20'), false, $this->app->getText('APP_ERROR_COMODO_API'));
 			return false;			
 		}
 
@@ -701,7 +706,7 @@ class validator_helper {
 			return true;
 		}
 
-		$this->setTest('Get Subject Alternative Name (SAN)', false, $this->app->getText('APP_ERROR_11').' ('.$this->getComodoErrorMessage().')');
+		$this->setTest($this->app->getText('APP_REQUEST_20'), false, $this->app->getText('APP_ERROR_20').' ('.$this->getComodoErrorMessage().')');
 
 		return false;
 	}
@@ -742,6 +747,30 @@ class validator_helper {
 	}
 
 	/**
+	* Check the reserved IPv4 addresses
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkSanReservedIp() {
+
+		// Get almost one entry
+		if (!count($this->csr_sans)) {
+			return false;
+		}
+
+		$check = true;
+
+		foreach($this->csr_sans as $san) {			
+			if (filter_var($san, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE)) {
+				$check = false;
+				break;
+			}
+		}
+
+		return $check;
+	}
+
+	/**
 	* Check the Subject Alternative Name so that one of them should correspond to the Common Name
 	*
 	* @return 	boolean true on success, false on failure
@@ -771,22 +800,59 @@ class validator_helper {
 		// Internal FQDNs, reserved IP addresses and .local domains are strict forbidden.
 		$whois = new Whois();
 		
+		$i = 0;
 		$check = true;
 		$san_dns_array = array();
+
 		foreach($this->csr_domains as $domain) {
 
-			$whois_response = $whois->lookup($domain);
+			$whois_response = $whois->lookup($domain["domain"]);
 
 			if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
 				$check = false;
 				break;
 			}
+			
+			$this->csr_domains[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
+			$this->csr_domains[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
+			
+			$i++;
 		}
 		
-		if (!$check) {
+		return $check;
+	}
+	
+	private function formatWhoisRawData($datas) {
+		
+		if (!count($datas)) {
+			return false;
+		}
+		
+		$html = '';
+
+		foreach($datas as $data) {
+			$html .= $data.'<br />';
+		}
+		
+		return $html;
+	}
+
+	/**
+	* Check the Subject Alternative Name should be present only once
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkSanOnce() {
+
+		// The SAN must contain at least 1 entry
+		if (!count($this->csr_sans)) {
 			return false;
 		}
 
+		if (count(array_unique($this->csr_sans)) != count($this->csr_sans)) {
+			return false;
+		}
+		
 		return true;
 	}
 
@@ -860,7 +926,7 @@ class validator_helper {
 				$blacklist_dns = $this->getBlackListDns(trim($blacklist_url));
 
 				foreach($this->csr_domains as $domain) {
-					if (in_array($domain, $blacklist_dns)) {
+					if (in_array($domain["domain"], $blacklist_dns)) {
 						$check = true;
 						break;
 					}
@@ -885,10 +951,6 @@ class validator_helper {
 	* @return 	boolean true on success, false on failure
 	*/
 	private function checkWildCard() {
-			
-		if (strstr($this->csr_cn, '*')) {
-			return true;
-		}
 		
 		if (in_array('*', $this->csr_sans)) {
 			return true;
