@@ -262,12 +262,16 @@ class validator_helper {
 
 		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
 		$row["check"] = $this->app->getText('APP_REQUEST_16');
-		$row["result"] = true;
+		$row["result"] = $san_value ? true : false;
+		
+		if (!$san_value) {
+			$row["detail"] = $this->app->getText('APP_ERROR_14');	
+		}
 
 		if ($this->checkSanBlacklisted()) {
-			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_BLACKLISTED');
+			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_NOT_BLACKLISTED') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');
 		} else {
-			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_BLACKLISTED');			
+			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_BLACKLISTED') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');	
 		}
 
 		$this->response_checks[] = $row;
@@ -276,12 +280,16 @@ class validator_helper {
 
 		// Is wildcard present?
 		$row["check"] = $this->app->getText('APP_REQUEST_18');
-		$row["result"] = true;
+		$row["result"] = $san_value ? true : false;
+
+		if (!$san_value) {
+			$row["detail"] = $this->app->getText('APP_ERROR_14');	
+		}
 
 		if ($this->checkWildCard()) {
-			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_PRESENT');
+			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_PRESENT') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');
 		} else {
-			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_PRESENT');			
+			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_NOT_PRESENT') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');
 		}
 
 		$this->response_checks[] = $row;
@@ -322,7 +330,7 @@ class validator_helper {
 		fclose($file);
 		
 		if (strlen($this->csr_content)) {
-			return $this->csr_content;
+			return true;
 		}
 		
 		$this->csr_content = $_POST["csr_text"];
@@ -761,7 +769,7 @@ class validator_helper {
 		$check = true;
 
 		foreach($this->csr_sans as $san) {			
-			if (filter_var($san, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE)) {
+			if (filter_var($san, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
 				$check = false;
 				break;
 			}

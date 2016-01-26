@@ -125,7 +125,28 @@ if ($validator->checkRequest()) {
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_DOMAIN').' '.$i; ?></td>
 									<td>
-										<a href="<?php echo strlen($domain["server"]) ? 'http://'.$domain["server"] : ''; ?>" target="_blank" rel="tooltip" data-html="true" data-placement="auto" title="<?php echo $domain["whois"]; ?>"><?php echo $domain["domain"]; ?></a>
+										<?php if (strlen($domain["server"])) { ?>
+										<a href="#" data-toggle="modal" data-target="#myModal"><?php echo $domain["domain"]; ?></a>
+										<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+											<div class="modal-dialog" role="document">
+												<div class="modal-content">
+													<div class="modal-header">
+														<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+														<h4 class="modal-title" id="myModalLabel"><?php echo $domain["domain"]; ?></h4>
+													</div>
+													<div class="modal-body">
+														<?php echo $domain["whois"]; ?>
+													</div>
+													<div class="modal-footer">
+														<button type="button" class="btn btn-default" data-dismiss="modal"><?php echo $app->getText('APP_REQUEST_DOMAIN_CLOSE'); ?></button>
+													</div>
+												</div>
+											</div>
+										</div>
+										<a href="<?php echo 'http://'.$domain["server"]; ?>" target="_blank" title="<?php echo $app->getText('APP_REQUEST_DOMAIN_WHOIS'); ?>"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+										<?php } else { ?>
+										<?php echo $domain["domain"]; ?>
+										<?php } ?>
 									</td>
 								</tr>
 								<?php $i++; ?>						
