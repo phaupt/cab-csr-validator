@@ -377,18 +377,20 @@ class validator_helper {
 			return false;
 		}
 
-		foreach ($subject as $key => $value) {			
+		foreach ($subject as $key => $value) {
 			switch (strtolower($key)) {
 				case 'c':
 					$this->csr_c = $value;
 					break;
 
 				case 'st':
+
 					if (is_array($value)) {
 						$this->csr_st = $value;
 					} else {
 						$this->csr_st[0] = $value;
-					}
+					}					
+
 					break;
 
 				case 'l':
@@ -820,7 +822,7 @@ class validator_helper {
 				$check = false;
 				break;
 			}
-			
+
 			$this->csr_domains[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
 			$this->csr_domains[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
 			
@@ -960,11 +962,20 @@ class validator_helper {
 	*/
 	private function checkWildCard() {
 		
-		if (in_array('*', $this->csr_sans)) {
-			return true;
+		if (!count($this->csr_sans)) {
+			return false;
 		}
 		
-		return false;
+		$check = false;
+
+		foreach($this->csr_sans as $san) {
+			if (in_array('*', explode('.', $san))) {
+				$check = true;
+				break;
+			}
+		}
+
+		return $check;
 	}
 
 	/**
@@ -1022,7 +1033,8 @@ class validator_helper {
 
 		$result["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_YES');
 		
-		if (in_array('*', $this->csr_sans)) {
+		//if (in_array('*', $this->csr_sans)) {
+		if ($this->checkWildCard()) {
 			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_WILDCARD');
 		} else {
 			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_NO_WILDCARD');			

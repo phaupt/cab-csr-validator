@@ -40,7 +40,14 @@ $app = new validator_app();
 							<div class="form-group">
 								<label class="col-md-1 control-label" for="csr_upload"><?php echo $app->getText('APP_CSR_UPLOAD_LABEL'); ?></label>
 								<div class="col-md-5">
-									<input type="file" id="csr_upload" name="csr_upload">
+									<div class="input_file_button_zone">
+										<a class="btn btn-primary" href="#">
+											<?php echo $app->getText('APP_CSR_TEXT_UPLOAD_CHOOSE'); ?>
+											<input type="file" style='position:absolute;z-index:2;top:0;left:0;filter: alpha(opacity=0);-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";opacity:0;background-color:transparent;color:transparent;' name="csr_upload" onchange="$('#upload-file-info').html($(this).val());">
+										</a>
+										&nbsp;
+										<span class='label label-info' id="upload-file-info"></span>
+									</div>
 									<p class="help-block"><?php echo $app->getText('APP_CSR_TEXT_UPLOAD_HELP'); ?></p>
 								</div>
 							</div>

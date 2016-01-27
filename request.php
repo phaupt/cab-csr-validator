@@ -68,17 +68,27 @@ if ($validator->checkRequest()) {
 									<td><?php echo $validator->csr_o; ?></td>
 								</tr>
 								<?php } ?>
+								<?php if (count($validator->csr_ou)) { ?>
 								<?php foreach($validator->csr_ou as $ou) { ?>
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_OU'); ?></td>
 									<td><?php echo $ou; ?></td>
 								</tr>
 								<?php } ?>
+								<?php } ?>
 								<?php if (strlen($validator->csr_l)) { ?>
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_L'); ?></td>
 									<td><?php echo $validator->csr_l; ?></td>
 								</tr>
+								<?php } ?>
+								<?php if (count($validator->csr_st)) { ?>
+								<?php foreach($validator->csr_st as $st) { ?>
+								<tr>
+									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_ST'); ?></td>
+									<td><?php echo $st; ?></td>
+								</tr>
+								<?php } ?>
 								<?php } ?>
 								<?php if (strlen($validator->csr_s)) { ?>
 								<tr>
@@ -126,8 +136,8 @@ if ($validator->checkRequest()) {
 									<td><?php echo $app->getText('APP_REQUEST_DOMAIN').' '.$i; ?></td>
 									<td>
 										<?php if (strlen($domain["server"])) { ?>
-										<a href="#" data-toggle="modal" data-target="#myModal"><?php echo $domain["domain"]; ?></a>
-										<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+										<a href="#" data-toggle="modal" data-target="#modal_<?php echo $i; ?>"><?php echo $domain["domain"]; ?></a>
+										<div class="modal fade" id="modal_<?php echo $i; ?>" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
 											<div class="modal-dialog" role="document">
 												<div class="modal-content">
 													<div class="modal-header">
@@ -211,14 +221,16 @@ if ($validator->checkRequest()) {
 			</div>
 		</div>
 		<div class="container">     
-			<div class="span12 centered-text"> 
+			<div class="span12 centered-text">
+				<div>
+					<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
+				</div>
 				<a class="btn btn-default btn-lg" href="index.php" role="button"><?php echo $app->getText('APP_REQUEST_BACK'); ?></a>
 			</div>
 		</div>
 		<div class="footer">
 			<div class="col-md-6 col-md-offset-1 container">
-				<footer>Swisscom (Schweiz) AG <cite title="Source Title">CSR Validator</cite></footer>
-				<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
+				&nbsp;
 			</div>
 		</div>
 		<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
