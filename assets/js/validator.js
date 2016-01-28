@@ -12,16 +12,25 @@
 (function($){
 
 	$(document).on('click', '#submit_btn_send', function(e) {
-		e.preventDefault()
+		e.preventDefault();
 		$('#spinner').show();
 		$('#button_zone').hide();
 		$('#validator_form').submit();
-	})
+	});
 
 	$(document).on('click', '#submit_btn_remove', function(e) {
-		e.preventDefault()
+		e.preventDefault();
 		setRemoveFormValues();
+	});
+
+	$(document).on('change', '#csr_upload', function(e) {		
+		var path = this.value;
+		var fic = path.split("\\");
+		var length = fic.length;
+        var name = fic[length-1];
+		$('#upload-file-info').html(name);
 	})
+
 }(jQuery))
 
 jQuery(document).ready(function($) {
@@ -47,7 +56,7 @@ jQuery(document).ready(function($) {
 		, zIndex: 2e9 // The z-index (defaults to 2000000000)
 		, className: 'spinner' // The CSS class to assign to the spinner
 		, top: '50%' // Top position relative to parent
-		, left: '50%' // Left position relative to parent
+		, left: '0%' // Left position relative to parent
 		, shadow: false // Whether to render a shadow
 		, hwaccel: false // Whether to use hardware acceleration
 		, position: 'relative' // Element positioning
@@ -58,7 +67,6 @@ jQuery(document).ready(function($) {
 })
 
 function setRemoveFormValues() {		
-	// Set form field empty
 	jQuery('#csr_upload').val('');
 	jQuery('#csr_text').val('');
 }

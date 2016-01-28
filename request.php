@@ -164,6 +164,29 @@ if ($validator->checkRequest()) {
 							</tbody>
 						</table>
 						<?php } ?>
+
+						<?php if ($validator->csr_ips) { ?>
+						<table class="table table-bordered">
+							<h2><?php echo $app->getText('APP_REQUEST_IPS'); ?></h2>
+							<thead>
+								<tr>
+									<th class="col-md-5"><?php echo $app->getText('APP_REQUEST_SUBJECT_RDN'); ?></th>
+									<th><?php echo $app->getText('APP_REQUEST_SUBJECT_VALUE'); ?></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php $i = 1; ?>
+								<?php foreach($validator->csr_ips as $ip) { ?>
+								<tr>
+									<td><?php echo $app->getText('APP_REQUEST_IP').' '.$i; ?></td>
+									<td><?php echo $ip; ?></td>
+								</tr>
+								<?php $i++; ?>						
+								<?php } ?>
+							</tbody>
+						</table>
+						<?php } ?>
+
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_CHECKS'); ?></h2>
 							<thead>
@@ -181,7 +204,7 @@ if ($validator->checkRequest()) {
 									<td><?php echo '<strong>'.$response_check["check"].'</strong>'; ?></td>
 									<td>
 										<em><?php echo $response_check["result_msg"]; ?></em>
-										<?php if (strlen($response_check["detail"])) { ?>
+										<?php if (isset($response_check["detail"])) { ?>
 										<?php echo ', '.$response_check["detail"]; ?>
 										<?php } ?>
 									</td>
@@ -207,7 +230,7 @@ if ($validator->checkRequest()) {
 									<td><?php echo '<strong>'.$response_result["check"].'</strong>'; ?></td>
 									<td>
 										<em><?php echo $response_result["result_msg"]; ?></em>
-										<?php if (strlen($response_result["detail"])) { ?>
+										<?php if (isset($response_result["detail"])) { ?>
 										<?php echo ', '.$response_result["detail"]; ?>
 										<?php } ?>
 									</td>
@@ -225,7 +248,7 @@ if ($validator->checkRequest()) {
 				<div>
 					<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
 				</div>
-				<a class="btn btn-default btn-lg" href="index.php" role="button"><?php echo $app->getText('APP_REQUEST_BACK'); ?></a>
+				<a class="btn btn-primary" href="index.php" role="button"><?php echo $app->getText('APP_REQUEST_BACK'); ?></a>
 			</div>
 		</div>
 		<div class="footer">

@@ -20,6 +20,7 @@ $app = new validator_app();
 		<title><?php echo $app->getText('TITLE'); ?></title>
 		<!-- Bootstrap -->
 		<link href="assets/css/bootstrap.min.css" rel="stylesheet">
+		<link href="assets/css/custom.css" rel="stylesheet">
 		<!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
 		<!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
 		<!--[if lt IE 9]>
@@ -43,7 +44,7 @@ $app = new validator_app();
 									<div class="input_file_button_zone">
 										<a class="btn btn-primary" href="#">
 											<?php echo $app->getText('APP_CSR_TEXT_UPLOAD_CHOOSE'); ?>
-											<input type="file" style='position:absolute;z-index:2;top:0;left:0;filter: alpha(opacity=0);-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";opacity:0;background-color:transparent;color:transparent;' name="csr_upload" onchange="$('#upload-file-info').html($(this).val());">
+											<input type="file" style='position:absolute;z-index:2;top:0;left:0;filter: alpha(opacity=0);-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";opacity:0;background-color:transparent;color:transparent;' name="csr_upload" id="csr_upload">
 										</a>
 										&nbsp;
 										<span class='label label-info' id="upload-file-info"></span>

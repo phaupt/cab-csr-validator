@@ -30,26 +30,8 @@ class validator_helper {
 	/* App */
 	protected $app;						// App instance
 
-	/* Comodo API */
-	protected $api_url;
-	protected $timeout = 120;
-	protected $showErrorCodes;
-	protected $showErrorMessages;
-	protected $showFieldNames;
-	protected $showEmptyFields;
-	protected $showCN;
-	protected $showAddress;
-	protected $showPublicKey;
-	protected $showKeySize;
-	protected $showSANDNSNames;
-	protected $showCSR;
-	protected $showCSRHashes;
-	protected $showSignatureAlgorithm;
-	protected $countryNameType;
-
-	/* Comodo API response */
-	protected $comodo_response_text;
-	protected $comodo_response;
+	/* Time out */
+	public $timeout;
 
 	/* Request default values */
 	protected $san_entries_max;
@@ -69,7 +51,9 @@ class validator_helper {
 	public $csr_phone;
 	public $csr_keysize;
 	public $csr_sans = false;
+	public $csr_ips = false;	
 	public $csr_domains = false;
+	public $whois_errors = false;
 	
 	/* Whois */
 	protected $whois_response;
@@ -88,7 +72,6 @@ class validator_helper {
 
 	/* Duration */
 	public $duration;					// Duration
-
 
 	/**
 	* validator_helper class
@@ -123,6 +106,11 @@ class validator_helper {
 			return false;
 		}
 		
+		if (!extension_loaded('openssl')) {
+			$this->setTest('Requirements (php_openssl)', false, 'PHP <openssl> library is not installed!');
+			return false;
+		}
+		
 		return true;
 	}
 
@@ -144,23 +132,8 @@ class validator_helper {
 		
 		/* Set the default values */
 
-		/* Set the Comodo API values */
-		$this->api_url = $this->validator_config->api_url;
-		$this->showErrorCodes = $this->validator_config->showErrorCodes;
-		$this->showErrorMessages = $this->validator_config->showErrorMessages;
-		$this->showFieldNames = $this->validator_config->showFieldNames;
-		$this->showEmptyFields = $this->validator_config->showEmptyFields;
-		$this->showCN = $this->validator_config->showCN;
-		$this->showAddress = $this->validator_config->showAddress;
-		$this->showPublicKey = $this->validator_config->showPublicKey;
-		$this->showKeySize = $this->validator_config->showKeySize;
-		$this->showSANDNSNames = $this->validator_config->showSANDNSNames;
-		$this->showCSR = $this->validator_config->showCSR;
-		$this->showCSRHashes = $this->validator_config->showCSRHashes;
-		$this->showSignatureAlgorithm = $this->validator_config->showSignatureAlgorithm;
-		$this->countryNameType = $this->validator_config->countryNameType;
-		
 		/* Request default values */
+		$this->timeout = $this->validator_config->timeout;
 		$this->san_entries_max = $this->validator_config->san_entries_max;
 		
 		return true;
@@ -173,8 +146,8 @@ class validator_helper {
 	*/
 	private function checkConfiguration() {
 
-		if (!strlen($this->validator_config->api_url)) {
-			$this->setTest('Configuration (Comodo API)', false, 'Comodo API not defined!');
+		if (!strlen($this->validator_config->timeout)) {
+			$this->setTest('Configuration (timeout)', false, 'Timeout not defined!');
 			return false;
 		}
 
@@ -243,17 +216,20 @@ class validator_helper {
 		// The X.509v3 Extension Subject Alternative Name (SAN) must be available
 		$this->setTest($this->app->getText('APP_REQUEST_12'), $san_value ? $this->checkSanAvailable() : false, $this->app->getText('APP_ERROR_12'));
 
+		// Subject Alternative Name (SAN) must be available and be present only once
+		$this->setTest($this->app->getText('APP_REQUEST_21'), $san_value ? $this->checkSanOnce() : false, $this->app->getText('APP_ERROR_21'));
+
 		// The SAN must contain at least 1 entry and a configurable number of maximal entries.
 		$this->setTest($this->app->getText('APP_REQUEST_13'), $san_value ? $this->checkSanEntries() : false, str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
 
-		// Subject Alternative Name (SAN) does not contain reserved IP address(es) in the RFC 1918 & 4153 range
-		$this->setTest($this->app->getText('APP_REQUEST_19'), $san_value ? $this->checkSanReservedIp() : false, $this->app->getText('APP_ERROR_19'));
+		// Subject Alternative Name (SAN) does not contain reserved IPv4 address(es) in the RFC 1918
+		$this->setTest($this->app->getText('APP_REQUEST_19'), $san_value ? $this->checkSanReservedIp4() : false, $this->app->getText('APP_ERROR_19'));
+
+		// Subject Alternative Name (SAN) does not contain reserved IPv6 address(es) in the RFC 4153
+		$this->setTest($this->app->getText('APP_REQUEST_22'), $san_value ? $this->checkSanReservedIp6() : false, $this->app->getText('APP_ERROR_22'));
 
 		// The SAN's domain(s) must be a valid FQDN/IP address (verifiable through WhoIS lookup).
-		$this->setTest($this->app->getText('APP_REQUEST_14'), $san_value ? $this->checkSanWhois() : false, $this->app->getText('APP_ERROR_14'));
-
-		// Subject Alternative Name (SAN) must be available and be present only once
-		$this->setTest($this->app->getText('APP_REQUEST_21'), $san_value ? $this->checkSanOnce() : false, $this->app->getText('APP_ERROR_21'));
+		$this->setTest($this->app->getText('APP_REQUEST_14'), $san_value ? $this->checkSanWhois() : false, $this->app->getText('APP_ERROR_14').' ['.$this->whois_errors.']');
 
 		// The domain of the CN is NOT blacklisted.
 		//$this->setTest($this->app->getText('APP_REQUEST_15'), $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_15'));
@@ -321,7 +297,7 @@ class validator_helper {
 	*/
 	private function getCsrContent() {
 		
-		if (!strlen($_FILES["csr_upload"]["tmp_name"]) && !strlen($_POST["csr_text"])) {
+		if (!isset($_FILES["csr_upload"]["tmp_name"]) && !isset($_POST["csr_text"])) {
 			return false;
 		}
 		
@@ -595,24 +571,43 @@ class validator_helper {
 	* @return 	boolean true on success, false on failure
 	*/
 	private function getCsrSanValues() {
+
+		$file_path = sys_get_temp_dir().'/'.uniqid('csr-').'.csr';
 		
-		if (!$this->sendRequestToComodo()) {
+		if (!file_put_contents($file_path, $this->csr_content)) {
+			$this->setTest('Writing CSR content into a file', false, 'Unable to write the file!');
 			return false;
 		}
 
-		// Format the Subject Alternative Name
-		$san = explode('=', $this->comodo_response[16]);
+		$openssl_csr_output = trim(shell_exec("timeout " . $this->timeout . " openssl req -noout -text -in " . $file_path . " | grep -e 'DNS:' -e 'IP:'"));
 		
-		if (!strlen($san[1])) {
+		unlink($file_path);
+
+		if (!strlen($openssl_csr_output)) {
 			return false;
 		}
 
-		$this->csr_sans = explode(',', $san[1]);
+		$sans = explode(",", $openssl_csr_output);
 		
+		if (!count($sans)) {
+			return false;
+		}
+
+		$this->csr_sans = array();
+		
+		foreach($sans as $san) {
+			if (strstr(strtolower($san), 'dns') || strstr(strtolower($san), 'ip')) {
+				$explode = explode(':', strtolower($san));
+				if (strlen($explode[1])) {
+					$this->csr_sans[] = $explode[1];
+				}
+			}
+		}
+
 		if (!$this->getCsrDomainsfromSans()) {
 			return false;
 		}
-		
+
 		return true;
 	}
 
@@ -628,6 +623,7 @@ class validator_helper {
 		}
 		
 		$san_dns_temp = '';
+		$this->csr_ips = array();
 		$this->csr_domains = array();
 
 		foreach($this->csr_sans as $san) {
@@ -635,90 +631,18 @@ class validator_helper {
 			$dns = explode('.', $san);
 			$count = count($dns);
 
-			$san_dns = $dns[$count-2].'.'.$dns[$count-1];
-			
-			if ($san_dns != $san_dns_temp) {
-				$this->csr_domains[]["domain"] = $san_dns;
-				$san_dns_temp = $san_dns;
+			if (!preg_match ("(^[0-9]*$)", $dns[$count-2]) && !preg_match ("(^[0-9]*$)", $dns[$count-1])) {
+				$san_dns = $dns[$count-2].'.'.$dns[$count-1];
+				if ($san_dns != $san_dns_temp) {
+					$this->csr_domains[]["domain"] = $san_dns;
+					$san_dns_temp = $san_dns;
+				}
+			} else {
+				$this->csr_ips[] = $san;
 			}
 		}
-
+		
 		return true;		
-	}
-
-	/**
-	* Send the CSR request to the Comodo API
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function sendRequestToComodo() {
-
-		// Get parameters values
-		$fields = array('csr' => $this->csr_content,
-			'showErrorCodes' => $this->showErrorCodes,
-			'showErrorMessages' => $this->showErrorMessages,
-			'showFieldNames' => $this->showFieldNames,
-			'showEmptyFields' => $this->showEmptyFields,
-			'showCN' => $this->showCN,
-			'showAddress' => $this->showAddress,
-			'showPublicKey' => $this->showPublicKey,
-			'showKeySize' => $this->showKeySize,
-			'showSANDNSNames' => $this->showSANDNSNames,
-			'showCSR' => $this->showCSR,
-			'showCSRHashes' => $this->showCSRHashes,
-			'showSignatureAlgorithm' => $this->showSignatureAlgorithm,
-			'countryNameType' => $this->countryNameType
-		);
-		
-		// URL Encode Values
-		$query_string = http_build_query($fields);
-
-		// Initiate CURL POST call
-		$ch = curl_init();
-		
-		// Set Curl options
-		curl_setopt($ch, CURLOPT_URL, $this->api_url);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
-		curl_setopt($ch, CURLOPT_TIMEOUT, $this->timeout);    
-		curl_setopt($ch, CURLOPT_POST, count($fields));
-		curl_setopt($ch, CURLOPT_POSTFIELDS, $query_string);
-		
-		// Send the request
-		$this->comodo_response_text = curl_exec($ch);
-
-		curl_close($ch);
-		
-		return $this->checkComodoResponse();
-	}
-
-	/**
-	* Check the response of the request to the Comodo API
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkComodoResponse() {
-		
-		// Check the response from Comodo API
-		if (!$this->comodo_response_text) {
-			return false;
-		}
-		
-		// Split text format response to array
-		$this->comodo_response = preg_split('/$\R?^/m', $this->comodo_response_text);
-		
-		if (!is_array($this->comodo_response) || !count($this->comodo_response)) {
-			$this->setTest($this->app->getText('APP_REQUEST_20'), false, $this->app->getText('APP_ERROR_COMODO_API'));
-			return false;			
-		}
-
-		if ($this->comodo_response[0] == '0') {
-			return true;
-		}
-
-		$this->setTest($this->app->getText('APP_REQUEST_20'), false, $this->app->getText('APP_ERROR_20').' ('.$this->getComodoErrorMessage().')');
-
-		return false;
 	}
 
 	/**
@@ -761,22 +685,55 @@ class validator_helper {
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function checkSanReservedIp() {
+	private function checkSanReservedIp4() {
 
 		// Get almost one entry
-		if (!count($this->csr_sans)) {
-			return false;
+		if (!count($this->csr_ips)) {
+			return true;
 		}
 
 		$check = true;
 
-		foreach($this->csr_sans as $san) {			
-			if (filter_var($san, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-				$check = false;
-				break;
+		foreach($this->csr_ips as $ip) {
+			
+			if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+				if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+					if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE)) {
+						$check = false;
+						break;
+					}
+				}
 			}
 		}
 
+		return $check;
+	}
+
+	/**
+	* Check the reserved IPv6 addresses
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkSanReservedIp6() {
+
+		// Get almost one entry
+		if (!count($this->csr_ips)) {
+			return true;
+		}
+
+		$check = true;
+
+		foreach($this->csr_ips as $ip) {
+			if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+				if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+					if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE)) {
+						$check = false;
+						break;
+					}
+				}
+			}
+		}
+		
 		return $check;
 	}
 
@@ -813,14 +770,15 @@ class validator_helper {
 		$i = 0;
 		$check = true;
 		$san_dns_array = array();
+		$this->whois_errors = array();
 
 		foreach($this->csr_domains as $domain) {
-
+			
 			$whois_response = $whois->lookup($domain["domain"]);
 
 			if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+				$this->whois_errors[] = $domain["domain"];
 				$check = false;
-				break;
 			}
 
 			$this->csr_domains[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
@@ -828,7 +786,11 @@ class validator_helper {
 			
 			$i++;
 		}
-		
+
+		if (count($this->whois_errors)) {
+			$this->whois_errors = implode(',', $this->whois_errors);
+		}
+
 		return $check;
 	}
 	
@@ -1026,14 +988,13 @@ class validator_helper {
 
 		if (!$this->checkCabRequirements()) {
 			$result["result"] = false;
+			$result["result_msg"] = false;
 			return $result;
 		}
 		
 		$result["result"] = true;
-
 		$result["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_YES');
 		
-		//if (in_array('*', $this->csr_sans)) {
 		if ($this->checkWildCard()) {
 			$result["result_msg"] .= ', '.$this->app->getText('APP_SUBMIT_CHECK_WILDCARD');
 		} else {
@@ -1072,106 +1033,6 @@ class validator_helper {
 		$result["result_msg"] .= ' '.str_replace('%s', count($this->csr_domains), $this->app->getText('APP_SUBMIT_CHECK_DOMAINS'));
 		
 		return $result;		
-	}
-
-	/**
-	* Get the error message from Comod API
-	*
-	* @return 	string Comodo error message
-	*/
-	private function getComodoErrorMessage() {
-
-		for ($i = 0; $i < (int)$this->comodo_response[0]; $i++) {
-			
-			switch ($this->comodo_response[$i+1]) {
-
-				case '-1':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_1');
-					break;
-
-				case '-2':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_2');
-					break;
-
-				case '-3':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_3');
-					break;
-
-				case '-4':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_4');
-					break;
-
-				case '-5':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_5');
-					break;
-
-				case '-6':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_6');
-					break;
-
-				case '-7':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_7');
-					break;
-
-				case '-8':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_8');
-					break;
-
-				case '-10':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_10');
-					break;
-
-				case '-11':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_11');
-					break;
-
-				case '-12':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_12');
-					break;
-
-				case '-13':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_13');
-					break;
-
-				case '-14':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_14');
-					break;
-
-				case '-18':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_18');
-					break;
-
-				case '-19':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_19');
-					break;
-
-				case '-23':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_23');
-					break;
-
-				case '-24':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_24');
-					break;
-
-				case '-25':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_25');
-					break;
-
-				case '-40':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_40');
-					break;
-
-				case '-41':
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_41');
-					break;				
-
-				default:
-					$msg = $this->app->getText('APP_ERROR_COMODO_CODE_14');
-					break;
-			}
-		}
-		
-		return $msg;
 	}
 
 	/**
