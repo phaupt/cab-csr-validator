@@ -55,6 +55,12 @@ class validator_helper {
 	public $csr_domains = false;
 	public $whois_errors = false;
 	
+	/* File path for openssl output */
+	public $file_path;
+
+	/* Openssl output */
+	public $openssl_output;
+	
 	/* Whois */
 	protected $whois_response;
 	
@@ -283,6 +289,8 @@ class validator_helper {
 		// Valid for Swisscom EV SSL Quarz
 		//$result = $this->checkSwisscomEvSslQuarz();
 		//$this->setResult($this->app->getText('APP_RESULT_4'), $result["result"], $result["result_msg"], $this->app->getText('APP_TEST_4'));
+		
+		$this->getOpensslOutput();
 
 		// Set the duration of the request
 		$this->getDuration($time_start);
@@ -570,18 +578,47 @@ class validator_helper {
 	*
 	* @return 	boolean true on success, false on failure
 	*/
-	private function getCsrSanValues() {
-
-		$file_path = sys_get_temp_dir().'/'.uniqid('csr-').'.csr';
+	private function getOpensslOutput() {
 		
-		if (!file_put_contents($file_path, $this->csr_content)) {
+		if (!strlen($this->file_path)) {
+			return false;
+		}
+
+		if (!file_put_contents($this->file_path, $this->csr_content)) {
 			$this->setTest('Writing CSR content into a file', false, 'Unable to write the file!');
 			return false;
 		}
 
-		$openssl_csr_output = trim(shell_exec("timeout " . $this->timeout . " openssl req -noout -text -in " . $file_path . " | grep -e 'DNS:' -e 'IP:'"));
+		$this->openssl_output = trim(shell_exec("timeout " . $this->timeout . " openssl req -noout -text -in " . $this->file_path));
 		
-		unlink($file_path);
+		unlink($this->file_path);
+
+		if (!strlen($this->openssl_output)) {
+			return false;
+		}
+
+		$this->openssl_output = str_replace(array("\r\n","\n"), '<br />', $this->openssl_output);
+		
+		return true;
+	}
+
+	/**
+	* Get the Subject Alternative Name from the request
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function getCsrSanValues() {
+
+		$this->file_path = sys_get_temp_dir().'/'.uniqid('csr-').'.csr';
+		
+		if (!file_put_contents($this->file_path, $this->csr_content)) {
+			$this->setTest('Writing CSR content into a file', false, 'Unable to write the file!');
+			return false;
+		}
+
+		$openssl_csr_output = trim(shell_exec("timeout " . $this->timeout . " openssl req -noout -text -in " . $this->file_path . " | grep -e 'DNS:' -e 'IP:'"));
+		
+		unlink($this->file_path);
 
 		if (!strlen($openssl_csr_output)) {
 			return false;
@@ -630,12 +667,16 @@ class validator_helper {
 
 			$dns = explode('.', $san);
 			$count = count($dns);
-
-			if (!preg_match ("(^[0-9]*$)", $dns[$count-2]) && !preg_match ("(^[0-9]*$)", $dns[$count-1])) {
-				$san_dns = $dns[$count-2].'.'.$dns[$count-1];
-				if ($san_dns != $san_dns_temp) {
-					$this->csr_domains[]["domain"] = $san_dns;
-					$san_dns_temp = $san_dns;
+			
+			if (isset($dns[$count-2]) && isset($dns[$count-1])) {
+				if (!preg_match ("(^[0-9]*$)", $dns[$count-2]) && !preg_match ("(^[0-9]*$)", $dns[$count-1])) {
+					$san_dns = $dns[$count-2].'.'.$dns[$count-1];
+					if ($san_dns != $san_dns_temp) {
+						$this->csr_domains[]["domain"] = $san_dns;
+						$san_dns_temp = $san_dns;
+					}
+				} else {
+					$this->csr_ips[] = $san;
 				}
 			} else {
 				$this->csr_ips[] = $san;
@@ -695,8 +736,7 @@ class validator_helper {
 		$check = true;
 
 		foreach($this->csr_ips as $ip) {
-			
-			if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+			if (filter_var($ip, FILTER_VALIDATE_IP)) {
 				if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
 					if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE)) {
 						$check = false;
@@ -705,7 +745,7 @@ class validator_helper {
 				}
 			}
 		}
-
+		
 		return $check;
 	}
 
@@ -724,7 +764,7 @@ class validator_helper {
 		$check = true;
 
 		foreach($this->csr_ips as $ip) {
-			if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+			if (filter_var($ip, FILTER_VALIDATE_IP)) {
 				if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
 					if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE)) {
 						$check = false;
@@ -782,7 +822,10 @@ class validator_helper {
 			}
 
 			$this->csr_domains[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
-			$this->csr_domains[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
+			
+			if (isset($whois_response["regyinfo"]["servers"][0]["server"])) {
+				$this->csr_domains[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
+			}
 			
 			$i++;
 		}

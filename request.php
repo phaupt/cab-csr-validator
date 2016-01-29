@@ -135,9 +135,9 @@ if ($validator->checkRequest()) {
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_DOMAIN').' '.$i; ?></td>
 									<td>
-										<?php if (strlen($domain["server"])) { ?>
+										<?php if (isset($domain["server"])) { ?>
 										<a href="#" data-toggle="modal" data-target="#modal_<?php echo $i; ?>"><?php echo $domain["domain"]; ?></a>
-										<div class="modal fade" id="modal_<?php echo $i; ?>" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+										<div class="modal fade" id="modal_<?php echo $i; ?>" tabindex="-1" role="dialog" aria-labelledby="modal_<?php echo $i; ?>_label">
 											<div class="modal-dialog" role="document">
 												<div class="modal-content">
 													<div class="modal-header">
@@ -245,6 +245,27 @@ if ($validator->checkRequest()) {
 		</div>
 		<div class="container">     
 			<div class="span12 centered-text">
+				<div>
+					<a href="#" data-toggle="modal" data-target="#modal_openssl"><?php echo $validator->file_path; ?></a>
+					<div class="modal fade" id="modal_openssl" tabindex="-1" role="dialog" aria-labelledby="modal_openssl_label">
+						<div class="modal-dialog" role="document">
+							<div class="modal-content">
+								<div class="modal-header">
+									<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+									<h4 class="modal-title" id="myModalLabel"><?php echo $validator->file_path; ?></h4>
+								</div>
+								<div class="modal-body">
+									<?php echo $validator->openssl_output; ?>
+								</div>
+								<div class="modal-footer">
+									<button type="button" class="btn btn-default" data-dismiss="modal"><?php echo $app->getText('APP_REQUEST_DOMAIN_CLOSE'); ?></button>
+								</div>
+							</div>
+						</div>
+					</div>
+
+
+				</div>
 				<div>
 					<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
 				</div>
