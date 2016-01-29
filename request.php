@@ -263,8 +263,6 @@ if ($validator->checkRequest()) {
 							</div>
 						</div>
 					</div>
-
-
 				</div>
 				<div>
 					<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
