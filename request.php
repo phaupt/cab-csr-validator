@@ -246,7 +246,7 @@ if ($validator->checkRequest()) {
 		<div class="container">     
 			<div class="span12 centered-text">
 				<div>
-					<a href="#" data-toggle="modal" data-target="#modal_openssl"><?php echo $validator->file_path; ?></a>
+					<a href="#" data-toggle="modal" data-target="#modal_openssl"><?php echo $app->getText('APP_REQUEST_OPENSSL_DETAIL'); ?></a>
 					<div class="modal fade" id="modal_openssl" tabindex="-1" role="dialog" aria-labelledby="modal_openssl_label">
 						<div class="modal-dialog" role="document">
 							<div class="modal-content">
@@ -254,7 +254,7 @@ if ($validator->checkRequest()) {
 									<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 									<h4 class="modal-title" id="myModalLabel"><?php echo $validator->file_path; ?></h4>
 								</div>
-								<div class="modal-body">
+								<div class="modal-body openssl">
 									<?php echo $validator->openssl_output; ?>
 								</div>
 								<div class="modal-footer">

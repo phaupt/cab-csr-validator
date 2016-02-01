@@ -50,10 +50,10 @@ class validator_helper {
 	public $csr_email;
 	public $csr_phone;
 	public $csr_keysize;
-	public $csr_sans = false;
-	public $csr_ips = false;	
-	public $csr_domains = false;
-	public $whois_errors = false;
+	public $csr_sans;
+	public $csr_ips;
+	public $csr_domains;
+	public $whois_errors;
 	
 	/* File path for openssl output */
 	public $file_path;
@@ -220,22 +220,22 @@ class validator_helper {
 		$this->setTest($this->app->getText('APP_REQUEST_11'), $this->checkEmail(), $this->app->getText('APP_ERROR_11'));
 
 		// The X.509v3 Extension Subject Alternative Name (SAN) must be available
-		$this->setTest($this->app->getText('APP_REQUEST_12'), $san_value ? $this->checkSanAvailable() : false, $this->app->getText('APP_ERROR_12'));
+		$this->setTest($this->app->getText('APP_REQUEST_12'), $this->checkSanAvailable(), $this->app->getText('APP_ERROR_12'));
 
 		// Subject Alternative Name (SAN) must be available and be present only once
-		$this->setTest($this->app->getText('APP_REQUEST_21'), $san_value ? $this->checkSanOnce() : false, $this->app->getText('APP_ERROR_21'));
+		$this->setTest($this->app->getText('APP_REQUEST_21'), $this->checkSanOnce(), $this->app->getText('APP_ERROR_21'));
 
 		// The SAN must contain at least 1 entry and a configurable number of maximal entries.
-		$this->setTest($this->app->getText('APP_REQUEST_13'), $san_value ? $this->checkSanEntries() : false, str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
+		$this->setTest($this->app->getText('APP_REQUEST_13'), $san_value ? $this->checkSanEntries() : true, str_replace('%s', $this->san_entries_max, $this->app->getText('APP_ERROR_13')));
 
 		// Subject Alternative Name (SAN) does not contain reserved IPv4 address(es) in the RFC 1918
-		$this->setTest($this->app->getText('APP_REQUEST_19'), $san_value ? $this->checkSanReservedIp4() : false, $this->app->getText('APP_ERROR_19'));
+		$this->setTest($this->app->getText('APP_REQUEST_19'), $san_value ? $this->checkSanReservedIp4() : true, $this->app->getText('APP_ERROR_19'));
 
 		// Subject Alternative Name (SAN) does not contain reserved IPv6 address(es) in the RFC 4153
-		$this->setTest($this->app->getText('APP_REQUEST_22'), $san_value ? $this->checkSanReservedIp6() : false, $this->app->getText('APP_ERROR_22'));
+		$this->setTest($this->app->getText('APP_REQUEST_22'), $san_value ? $this->checkSanReservedIp6() : true, $this->app->getText('APP_ERROR_22'));
 
 		// The SAN's domain(s) must be a valid FQDN/IP address (verifiable through WhoIS lookup).
-		$this->setTest($this->app->getText('APP_REQUEST_14'), $san_value ? $this->checkSanWhois() : false, $this->app->getText('APP_ERROR_14').' ['.$this->whois_errors.']');
+		$this->setTest($this->app->getText('APP_REQUEST_14'), $san_value ? $this->checkSanWhois() : true, $this->app->getText('APP_ERROR_14').' ['.$this->whois_errors.']');
 
 		// The domain of the CN is NOT blacklisted.
 		//$this->setTest($this->app->getText('APP_REQUEST_15'), $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_15'));
@@ -244,16 +244,13 @@ class validator_helper {
 
 		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
 		$row["check"] = $this->app->getText('APP_REQUEST_16');
-		$row["result"] = $san_value ? true : false;
-		
-		if (!$san_value) {
-			$row["detail"] = $this->app->getText('APP_ERROR_14');	
-		}
 
 		if ($this->checkSanBlacklisted()) {
-			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_NOT_BLACKLISTED') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');
+			$row["result"] = true;
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_BLACKLISTED');
 		} else {
-			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_BLACKLISTED') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');	
+			$row["result"] = false;
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_BLACKLISTED');
 		}
 
 		$this->response_checks[] = $row;
@@ -262,16 +259,12 @@ class validator_helper {
 
 		// Is wildcard present?
 		$row["check"] = $this->app->getText('APP_REQUEST_18');
-		$row["result"] = $san_value ? true : false;
-
-		if (!$san_value) {
-			$row["detail"] = $this->app->getText('APP_ERROR_14');	
-		}
+		$row["result"] = true;
 
 		if ($this->checkWildCard()) {
-			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_PRESENT') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_PRESENT');
 		} else {
-			$row["result_msg"] = $san_value ? $this->app->getText('APP_SUBMIT_CHECK_NOT_PRESENT') : $this->app->getText('APP_SUBMIT_CHECK_FAILED');
+			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_PRESENT');
 		}
 
 		$this->response_checks[] = $row;
@@ -809,15 +802,15 @@ class validator_helper {
 		
 		$i = 0;
 		$check = true;
+		$whois_errors = array();
 		$san_dns_array = array();
-		$this->whois_errors = array();
 
 		foreach($this->csr_domains as $domain) {
 			
 			$whois_response = $whois->lookup($domain["domain"]);
 
 			if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
-				$this->whois_errors[] = $domain["domain"];
+				$whois_errors[] = $domain["domain"];
 				$check = false;
 			}
 
@@ -830,8 +823,8 @@ class validator_helper {
 			$i++;
 		}
 
-		if (count($this->whois_errors)) {
-			$this->whois_errors = implode(',', $this->whois_errors);
+		if (count($whois_errors)) {
+			$this->whois_errors = implode(',', $whois_errors);
 		}
 
 		return $check;
@@ -861,7 +854,7 @@ class validator_helper {
 
 		// The SAN must contain at least 1 entry
 		if (!count($this->csr_sans)) {
-			return false;
+			return true;
 		}
 
 		if (count(array_unique($this->csr_sans)) != count($this->csr_sans)) {
@@ -923,7 +916,7 @@ class validator_helper {
 	private function checkSanBlacklisted() {
 
 		if (!count($this->csr_domains)) {
-			return false;
+			return true;
 		}
 
 		// Check if the DNS is blacklisted
@@ -968,7 +961,7 @@ class validator_helper {
 	private function checkWildCard() {
 		
 		if (!count($this->csr_sans)) {
-			return false;
+			return true;
 		}
 		
 		$check = false;
