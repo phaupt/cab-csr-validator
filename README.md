@@ -20,6 +20,7 @@ This helper use the PHP Whois Library. More infos here https://github.com/phpWho
 
 ## Test Domain Blacklisted
 The helper will read this file `conf/dns_blacklist.db`. It will then open all URLs configured on this file and then compare with all DNS of the CSR.
+
 To add more blacklisted domain, create a file with all blacklisted DNS and set the path (file or http path) on the `dns_blacklist.db` file.
 
 ## Test Internal IPs
@@ -27,6 +28,7 @@ The helper use the `filter_var()` PHP function, http://php.net/manual/fr/functio
 
 ## Test Debian Weak Keys
 Blacklist format requires sha1sum of output from "openssl x509 -noout -modulus" including the Modulus= and newline.
+
 Create the blacklist:
 * https://packages.debian.org/source/squeeze/openssl-blacklist
 * svn co svn://svn.debian.org/pkg-openssl/openssl-blacklist/
