@@ -41,6 +41,7 @@ if ($validator->checkRequest()) {
 						<div class="page-header">
 							<h1><?php echo $app->getText('APP_TITLE'); ?></h1>
 						</div>
+						<?php if ($validator->csr_subject) { ?>
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_SUBJECT_SUBJECT'); ?></h2>
 							<thead>
@@ -120,6 +121,7 @@ if ($validator->checkRequest()) {
 								<?php } ?>
 							</tbody>
 						</table>
+						<?php } ?>
 						<?php if ($validator->csr_domains) { ?>
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_DOMAINS'); ?></h2>
@@ -164,7 +166,6 @@ if ($validator->checkRequest()) {
 							</tbody>
 						</table>
 						<?php } ?>
-
 						<?php if ($validator->csr_ips) { ?>
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_IPS'); ?></h2>
@@ -186,7 +187,7 @@ if ($validator->checkRequest()) {
 							</tbody>
 						</table>
 						<?php } ?>
-
+						<?php if ($validator->response_checks) { ?>
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_CHECKS'); ?></h2>
 							<thead>
@@ -213,6 +214,8 @@ if ($validator->checkRequest()) {
 								<?php } ?>
 							</tbody>
 						</table>
+						<?php } ?>
+						<?php if ($validator->response_results) { ?>
 						<table class="table table-bordered">
 							<h2><?php echo $app->getText('APP_REQUEST_RESULTS'); ?></h2>
 							<thead>
@@ -239,6 +242,7 @@ if ($validator->checkRequest()) {
 								<?php } ?>
 							</tbody>
 						</table>
+						<?php } ?>
 					</div>
 				</div>
 			</div>

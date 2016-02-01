@@ -40,6 +40,7 @@ class validator_helper {
 	protected $csr_content;
 
 	/* CSR certificate values */
+	public $csr_subject;
 	public $csr_cn;
 	public $csr_o;
 	public $csr_ou;
@@ -86,6 +87,9 @@ class validator_helper {
 
 	public function __construct() {
 
+		/* Get the app instance */
+		$this->app = new validator_app();
+
 		/* Check the server requirements */
 		if (!$this->checkRequirements()) {
 			return false;
@@ -94,9 +98,7 @@ class validator_helper {
 		/* Set the configuration */
 		if (!$this->setConfiguration()) {
 			return false;
-		}
-		
-		$this->app = new validator_app();
+		}		
 	}
 
 	/**
@@ -298,21 +300,26 @@ class validator_helper {
 	*/
 	private function getCsrContent() {
 		
-		if (!isset($_FILES["csr_upload"]["tmp_name"]) && !isset($_POST["csr_text"])) {
+		if (!strlen($_FILES["csr_upload"]["tmp_name"]) && !strlen($_POST["csr_text"])) {
+			$this->setTest('CSR content', false, 'Any CSR content found!');
 			return false;
 		}
-		
-		$file = fopen($_FILES["csr_upload"]["tmp_name"], 'r');
-		$this->csr_content = fread($file, filesize($_FILES["csr_upload"]["tmp_name"]));
-		fclose($file);
-		
-		if (strlen($this->csr_content)) {
-			return true;
+
+		if (strlen($_FILES["csr_upload"]["tmp_name"])) {
+
+			$file = fopen($_FILES["csr_upload"]["tmp_name"], 'r');
+			$this->csr_content = fread($file, filesize($_FILES["csr_upload"]["tmp_name"]));
+			fclose($file);
+			
+			if (strlen($this->csr_content)) {
+				return true;
+			}
 		}
 		
 		$this->csr_content = $_POST["csr_text"];
 
 		if (!strlen($this->csr_content)) {
+			$this->setTest('CSR content', false, 'Any CSR content found!');
 			return false;
 		}
 		
@@ -348,13 +355,13 @@ class validator_helper {
 			return false;
 		}
 
-		$subject = openssl_csr_get_subject($this->csr_content);
+		$this->csr_subject = openssl_csr_get_subject($this->csr_content);
 
-		if (!$subject) {
+		if (!$this->csr_subject) {
 			return false;
 		}
 
-		foreach ($subject as $key => $value) {
+		foreach ($this->csr_subject as $key => $value) {
 			switch (strtolower($key)) {
 				case 'c':
 					$this->csr_c = $value;
@@ -961,7 +968,7 @@ class validator_helper {
 	private function checkWildCard() {
 		
 		if (!count($this->csr_sans)) {
-			return true;
+			return false;
 		}
 		
 		$check = false;

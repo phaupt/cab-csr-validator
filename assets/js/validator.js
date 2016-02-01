@@ -36,8 +36,7 @@
 jQuery(document).ready(function($) {
 	
 	jQuery('#spinner').hide();
-
-	jQuery("[rel=tooltip]").tooltip({html:true});
+	jQuery('#button_zone').show();
 	
 	var opts = {
 		  lines: 13 // The number of lines to draw
