@@ -263,13 +263,20 @@ class validator_helper {
 		$row["check"] = $this->app->getText('APP_REQUEST_18');
 		$row["result"] = true;
 
-		if ($this->checkWildCard()) {
+		$response = $this->checkWildCard();
+
+		if ($response) {
 			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_PRESENT');
 		} else {
 			$row["result_msg"] = $this->app->getText('APP_SUBMIT_CHECK_NOT_PRESENT');
 		}
 
 		$this->response_checks[] = $row;
+
+		// Wildcard applies to the domain(s)
+		if ($response) {
+			$this->setTest($this->app->getText('APP_REQUEST_23'), $san_value ? $this->checkWildCardApplyToDomain() : true, $this->app->getText('APP_ERROR_23'));
+		}
 
 		// Compliant to CAB Requirements
 		$this->setResult($this->app->getText('APP_RESULT_1'), $this->checkCabRequirements(), '', $this->app->getText('APP_TEST_1'));
@@ -508,7 +515,13 @@ class validator_helper {
 
 		$whois = new Whois();
 		
-		$this->whois_response = $whois->lookup($dns[$count-2].'.'.$dns[$count-1]);
+		$dns_string = $dns[$count-2].'.'.$dns[$count-1];
+		
+		if (strtolower($dns[$count-1]) == 'uk') {
+			$dns_string = $dns[$count-3].'.'.$dns_string;
+		}
+		
+		$this->whois_response = $whois->lookup($dns_string);
 
 		if (strtolower($this->whois_response["regrinfo"]["registered"]) != 'yes') {
 			return false;
@@ -669,8 +682,15 @@ class validator_helper {
 			$count = count($dns);
 			
 			if (isset($dns[$count-2]) && isset($dns[$count-1])) {
+
 				if (!preg_match ("(^[0-9]*$)", $dns[$count-2]) && !preg_match ("(^[0-9]*$)", $dns[$count-1])) {
+
 					$san_dns = $dns[$count-2].'.'.$dns[$count-1];
+
+					if (strtolower($dns[$count-1]) == 'uk') {
+						$san_dns = $dns[$count-3].'.'.$san_dns;
+					}
+
 					if ($san_dns != $san_dns_temp) {
 						$this->csr_domains[]["domain"] = $san_dns;
 						$san_dns_temp = $san_dns;
@@ -915,6 +935,10 @@ class validator_helper {
 
 		$domain = $dns[$count-2].'.'.$dns[$count-1];
 
+		if (strtolower($dns[$count-1]) == 'uk') {
+			$domain = $dns[$count-3].'.'.$domain;
+		}
+
 		// Check if the DNS is blacklisted
 		$this->getBlackListUrls();
 		
@@ -1005,6 +1029,56 @@ class validator_helper {
 			if (in_array('*', explode('.', $san))) {
 				$check = true;
 				break;
+			}
+		}
+
+		return $check;
+	}
+
+	/**
+	* Check if a wildcard apply to a valid domain detected in the lis
+	*
+	* @return 	boolean true on success, false on failure
+	*/
+	private function checkWildCardApplyToDomain() {
+		
+		if (!count($this->csr_sans)) {
+			return false;
+		}
+
+		// Internal FQDNs, reserved IP addresses and .local domains are strict forbidden.
+		$whois = new Whois();
+
+		$check = true;
+
+		foreach($this->csr_sans as $san) {
+
+			if (in_array('*', explode('.', $san))) {
+				
+				if (strlen($wildcard = strstr($san, '*', true))) {
+					$check = false;
+					break;
+				}
+				
+				$dns = explode('.', strstr($san, '*'));
+				$count = count($dns);
+				
+				$dns_string = '';
+
+				for($i=1; $i<$count; $i++) {
+					$dns_string .= $dns[$i];
+					
+					if ($i<($count-1)) {
+						$dns_string .= '.';
+					}
+				}
+				
+				$whois_response = $whois->lookup($dns_string);
+				
+				if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+					$check = false;
+					break;
+				}
 			}
 		}
 
