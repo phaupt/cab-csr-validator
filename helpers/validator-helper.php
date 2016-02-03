@@ -676,10 +676,10 @@ class validator_helper {
 						$san_dns_temp = $san_dns;
 					}
 				} else {
-					$this->csr_ips[] = $san;
+					$this->csr_ips[]["domain"] = $san;
 				}
 			} else {
-				$this->csr_ips[] = $san;
+				$this->csr_ips[]["domain"] = $san;
 			}
 		}
 		
@@ -800,34 +800,62 @@ class validator_helper {
 	private function checkSanWhois() {
 
 		// The SAN must contain at least 1 entry
-		if (!count($this->csr_domains)) {
+		if (!count($this->csr_domains) && !count($this->csr_domains)) {
 			return false;
 		}
 
 		// Internal FQDNs, reserved IP addresses and .local domains are strict forbidden.
 		$whois = new Whois();
 		
-		$i = 0;
 		$check = true;
 		$whois_errors = array();
-		$san_dns_array = array();
+		
+		if (count($this->csr_domains)) {
+		
+			$i = 0;
+			$san_dns_array = array();
 
-		foreach($this->csr_domains as $domain) {
-			
-			$whois_response = $whois->lookup($domain["domain"]);
+			foreach($this->csr_domains as $domain) {
+				
+				$whois_response = $whois->lookup($domain["domain"]);
 
-			if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
-				$whois_errors[] = $domain["domain"];
-				$check = false;
+				if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+					$whois_errors[] = $domain["domain"];
+					$check = false;
+				}
+
+				$this->csr_domains[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
+				
+				if (isset($whois_response["regyinfo"]["servers"][0]["server"])) {
+					$this->csr_domains[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
+				}
+				
+				$i++;
 			}
+		}
 
-			$this->csr_domains[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
-			
-			if (isset($whois_response["regyinfo"]["servers"][0]["server"])) {
-				$this->csr_domains[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
+		if (count($this->csr_ips)) {
+		
+			$i = 0;
+			$san_ips_array = array();
+
+			foreach($this->csr_ips as $ip) {
+				
+				$whois_response = $whois->lookup($ip["domain"]);
+
+				if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+					$whois_errors[] = $ip["domain"];
+					$check = false;
+				}
+
+				$this->csr_ips[$i]["whois"] = $this->formatWhoisRawData($whois_response["rawdata"]);
+				
+				if (isset($whois_response["regyinfo"]["servers"][0]["server"])) {
+					$this->csr_ips[$i]["server"] = $whois_response["regyinfo"]["servers"][0]["server"];
+				}
+				
+				$i++;
 			}
-			
-			$i++;
 		}
 
 		if (count($whois_errors)) {

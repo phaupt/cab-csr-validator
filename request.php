@@ -138,8 +138,8 @@ if ($validator->checkRequest()) {
 									<td><?php echo $app->getText('APP_REQUEST_DOMAIN').' '.$i; ?></td>
 									<td>
 										<?php if (isset($domain["server"])) { ?>
-										<a href="#" data-toggle="modal" data-target="#modal_<?php echo $i; ?>"><?php echo $domain["domain"]; ?></a>
-										<div class="modal fade" id="modal_<?php echo $i; ?>" tabindex="-1" role="dialog" aria-labelledby="modal_<?php echo $i; ?>_label">
+										<a href="#" data-toggle="modal" data-target="#modal_domains_<?php echo $i; ?>"><?php echo $domain["domain"]; ?></a>
+										<div class="modal fade" id="modal_domains_<?php echo $i; ?>" tabindex="-1" role="dialog" aria-labelledby="modal_domains_<?php echo $i; ?>_label">
 											<div class="modal-dialog" role="document">
 												<div class="modal-content">
 													<div class="modal-header">
@@ -161,7 +161,7 @@ if ($validator->checkRequest()) {
 										<?php } ?>
 									</td>
 								</tr>
-								<?php $i++; ?>						
+								<?php $i++; ?>
 								<?php } ?>
 							</tbody>
 						</table>
@@ -180,9 +180,32 @@ if ($validator->checkRequest()) {
 								<?php foreach($validator->csr_ips as $ip) { ?>
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_IP').' '.$i; ?></td>
-									<td><?php echo $ip; ?></td>
+									<td>
+										<?php if (isset($ip["server"])) { ?>
+										<a href="#" data-toggle="modal" data-target="#modal_ips_<?php echo $i; ?>"><?php echo $ip["domain"]; ?></a>
+										<div class="modal fade" id="modal_ips_<?php echo $i; ?>" tabindex="-1" role="dialog" aria-labelledby="modal_ips_<?php echo $i; ?>_label">
+											<div class="modal-dialog" role="document">
+												<div class="modal-content">
+													<div class="modal-header">
+														<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+														<h4 class="modal-title" id="myModalLabel"><?php echo $ip["domain"]; ?></h4>
+													</div>
+													<div class="modal-body">
+														<?php echo $ip["whois"]; ?>
+													</div>
+													<div class="modal-footer">
+														<button type="button" class="btn btn-default" data-dismiss="modal"><?php echo $app->getText('APP_REQUEST_DOMAIN_CLOSE'); ?></button>
+													</div>
+												</div>
+											</div>
+										</div>
+										<a href="<?php echo 'http://'.$ip["server"]; ?>" target="_blank" title="<?php echo $app->getText('APP_REQUEST_DOMAIN_WHOIS'); ?>"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span></a>
+										<?php } else { ?>
+										<?php echo $ip["domain"]; ?>
+										<?php } ?>
+									</td>
 								</tr>
-								<?php $i++; ?>						
+								<?php $i++; ?>
 								<?php } ?>
 							</tbody>
 						</table>
