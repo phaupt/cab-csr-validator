@@ -14,6 +14,7 @@
 // Validator class requirement
 require_once(__ROOT__.'/conf/configuration.php');
 require_once(__ROOT__.'/helpers/app.php');
+require_once(__ROOT__.'/helpers/tldextract/tldextract.php');
 require_once(__ROOT__.'/helpers/whois/WhoisClient.php');
 require_once(__ROOT__.'/helpers/whois/Whois.php');
 require_once(__ROOT__.'/helpers/whois/IpTools.php');
@@ -168,7 +169,7 @@ class validator_helper {
 	}
 
 	/**
-	* Validator, check the request certificate
+	* Validator, check the CSR
 	*
 	* @return 	boolean	true on success, false on failure
 	*/
@@ -196,9 +197,6 @@ class validator_helper {
 
 		// The Common Name (CN) must be available.
 		$this->setTest($this->app->getText('APP_REQUEST_5'), $this->checkCommonNameAvailable(), $this->app->getText('APP_ERROR_5'));
-
-		// The CN must be a valid FQDN/IP address (verifiable through WhoIS lookup).
-		//$this->setTest($this->app->getText('APP_REQUEST_6'), $this->checkCommonNameWhois(), $this->app->getText('APP_ERROR_6'));
 
 		$san_value = true;
 
@@ -239,9 +237,6 @@ class validator_helper {
 		// The SAN's domain(s) must be a valid FQDN/IP address (verifiable through WhoIS lookup).
 		$this->setTest($this->app->getText('APP_REQUEST_14'), $san_value ? $this->checkSanWhois() : true, $this->app->getText('APP_ERROR_14').' ['.$this->whois_errors.']');
 
-		// The domain of the CN is NOT blacklisted.
-		//$this->setTest($this->app->getText('APP_REQUEST_15'), $san_value ? $this->checkCommonNameBlacklisted() : false, $this->app->getText('APP_ERROR_15'));
-
 		$row = array();
 
 		// The domains of the Subject Alternative Name (SAN) entries are not blacklisted.
@@ -256,8 +251,6 @@ class validator_helper {
 		}
 
 		$this->response_checks[] = $row;
-
-		//$this->setTest($this->app->getText('APP_REQUEST_17'), $san_value ? $this->checkSanBlacklisted() : false, $this->app->getText('APP_ERROR_17'));
 
 		// Is wildcard present?
 		$row["check"] = $this->app->getText('APP_REQUEST_18');
@@ -432,7 +425,7 @@ class validator_helper {
 	}
 
 	/**
-	* Check the weak Debian key
+	* Check for weak Debian key
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -496,41 +489,6 @@ class validator_helper {
 	}
 
 	/**
-	* Check the Common Name of the request
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkCommonNameWhois() {
-		
-		if (!strlen($this->csr_cn)) {
-			return false;
-		}
-		
-		$dns = explode('.', $this->csr_cn);
-		$count = count($dns);
-		
-		if (!$count) {
-			return false;
-		}
-
-		$whois = new Whois();
-		
-		$dns_string = $dns[$count-2].'.'.$dns[$count-1];
-		
-		if (strtolower($dns[$count-1]) == 'uk') {
-			$dns_string = $dns[$count-3].'.'.$dns_string;
-		}
-		
-		$this->whois_response = $whois->lookup($dns_string);
-
-		if (strtolower($this->whois_response["regrinfo"]["registered"]) != 'yes') {
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
 	* Check the Organisation of the request
 	*
 	* @return 	boolean true on success, false on failure
@@ -587,7 +545,7 @@ class validator_helper {
 	}
 
 	/**
-	* Get the Subject Alternative Name from the request
+	* Get openssl request output
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -662,7 +620,7 @@ class validator_helper {
 	}
 
 	/**
-	* Get the Subject Alternative Name from the request
+	* Get the domains from  the Subject Alternative Name of the request
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -678,31 +636,21 @@ class validator_helper {
 
 		foreach($this->csr_sans as $san) {
 
-			$dns = explode('.', $san);
-			$count = count($dns);
-			
-			if (isset($dns[$count-2]) && isset($dns[$count-1])) {
+			$tldextract = tldextract($san);
 
-				if (!preg_match ("(^[0-9]*$)", $dns[$count-2]) && !preg_match ("(^[0-9]*$)", $dns[$count-1])) {
+			if (strlen($tldextract["domain"]) && strlen($tldextract["tld"])) {
 
-					$san_dns = $dns[$count-2].'.'.$dns[$count-1];
+				$san_dns = $tldextract["domain"].'.'.$tldextract["tld"];
 
-					if (strtolower($dns[$count-1]) == 'uk') {
-						$san_dns = $dns[$count-3].'.'.$san_dns;
-					}
-
-					if ($san_dns != $san_dns_temp) {
-						$this->csr_domains[]["domain"] = $san_dns;
-						$san_dns_temp = $san_dns;
-					}
-				} else {
-					$this->csr_ips[]["domain"] = $san;
+				if ($san_dns != $san_dns_temp) {
+					$this->csr_domains[]["domain"] = $san_dns;
+					$san_dns_temp = $san_dns;
 				}
 			} else {
 				$this->csr_ips[]["domain"] = $san;
-			}
+			}			
 		}
-		
+
 		return true;		
 	}
 
@@ -721,7 +669,7 @@ class validator_helper {
 	}
 
 	/**
-	* Check the Subject Alternative Name entries
+	* Check the Subject Alternative Name maximum allowed entries
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -813,7 +761,7 @@ class validator_helper {
 	}
 
 	/**
-	* Check the Subject Alternative Name of the request
+	* Do the Whois of the Subject Alternative Name of the request
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -885,6 +833,11 @@ class validator_helper {
 		return $check;
 	}
 	
+	/**
+	* Format the Whois result as html
+	*
+	* @return 	string html code
+	*/
 	private function formatWhoisRawData($datas) {
 		
 		if (!count($datas)) {
@@ -920,55 +873,7 @@ class validator_helper {
 	}
 
 	/**
-	* Check the Subject Alternative Name domains
-	*
-	* @return 	boolean true on success, false on failure
-	*/
-	private function checkCommonNameBlacklisted() {
-
-		if (!strlen($this->csr_cn)) {
-			return false;
-		}
-
-		$dns = explode('.', $this->csr_cn);
-		$count = count($dns);
-
-		$domain = $dns[$count-2].'.'.$dns[$count-1];
-
-		if (strtolower($dns[$count-1]) == 'uk') {
-			$domain = $dns[$count-3].'.'.$domain;
-		}
-
-		// Check if the DNS is blacklisted
-		$this->getBlackListUrls();
-		
-		if (count($this->blacklist_urls)) {
-			
-			$check = false;
-			foreach($this->blacklist_urls as $blacklist_url) {
-
-				if (!trim($blacklist_url)) {
-					continue;
-				}
-
-				$blacklist_dns = $this->getBlackListDns(trim($blacklist_url));
-
-				if (in_array($domain, $blacklist_dns)) {
-					$check = true;
-					break;
-				}				
-			}
-			
-			if ($check) {
-				return false;				
-			}
-		}
-		
-		return true;
-	}
-
-	/**
-	* Check the Subject Alternative Name domains
+	* Check if the Subject Alternative Name domains is blacklisted
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -984,6 +889,7 @@ class validator_helper {
 		if (count($this->blacklist_urls)) {
 			
 			$check = false;
+
 			foreach($this->blacklist_urls as $blacklist_url) {
 
 				if (!trim($blacklist_url)) {
@@ -1036,7 +942,7 @@ class validator_helper {
 	}
 
 	/**
-	* Check if a wildcard apply to a valid domain detected in the lis
+	* Check if a wildcard apply to a valid domain detected
 	*
 	* @return 	boolean true on success, false on failure
 	*/
@@ -1059,25 +965,20 @@ class validator_helper {
 					$check = false;
 					break;
 				}
-				
-				$dns = explode('.', strstr($san, '*'));
-				$count = count($dns);
-				
-				$dns_string = '';
 
-				for($i=1; $i<$count; $i++) {
-					$dns_string .= $dns[$i];
-					
-					if ($i<($count-1)) {
-						$dns_string .= '.';
+				$tldextract = tldextract($san);
+				
+				if (strlen($tldextract["domain"]) && strlen($tldextract["tld"])) {	
+
+					$whois_response = $whois->lookup($tldextract["domain"].'.'.$tldextract["tld"]);
+
+					if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+						$check = false;
+						break;
 					}
-				}
-				
-				$whois_response = $whois->lookup($dns_string);
-				
-				if (strtolower($whois_response["regrinfo"]["registered"]) != 'yes') {
+				} else {
 					$check = false;
-					break;
+					break;					
 				}
 			}
 		}
@@ -1181,9 +1082,9 @@ class validator_helper {
 	}
 
 	/**
-	* Get the black list of URLs
+	* Get the blacklist of DNSs
 	*
-	* @return 	array of URLs on success, false on failure
+	* @return 	array of DNSs on success, false on failure
 	*/
 	private function getBlackListDns($blacklist_url) {
 		
@@ -1209,7 +1110,7 @@ class validator_helper {
 	}
 
 	/**
-	* Get the black list of URLs
+	* Get the blacklist of URLs
 	*
 	* @return 	array of URLs on success, false on failure
 	*/
@@ -1239,7 +1140,7 @@ class validator_helper {
 	}
 
 	/**
-	* Get CSR content from the form
+	* Get the duration of the tests execution
 	*
 	* @return 	string CSR content on success, false on failure
 	*/
@@ -1257,8 +1158,11 @@ class validator_helper {
 	}
 
 	/**
-	* Validator set the errors
+	* Validator set the test result
 	*
+    * @param 	string 	$check, test label
+    * @param 	boolean	$result, test result
+    * @param 	string	$detail, result detail
 	* @return 	boolean	true on success, false on failure
 	*/
 	private function setTest($check, $result = false, $detail = '') {
@@ -1285,6 +1189,10 @@ class validator_helper {
 	/**
 	* Validator set the result
 	*
+    * @param 	string 	$check, test label
+    * @param 	boolean	$result, test result
+    * @param 	string	$result_msg, result message
+    * @param 	string	$detail, result detail
 	* @return 	boolean	true on success, false on failure
 	*/
 	private function setResult($check, $result = false, $result_msg = '', $detail = '') {

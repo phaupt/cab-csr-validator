@@ -15,6 +15,9 @@ Example: `git clone <URL> /var/www/csr_validator`
 * Rename the configuration file example from `conf/configuration.example.php` to `conf/configuration.php`
 * Edit the configuration file `conf/configuration.php` according to your environment
 
+## TLD extract from SANs 
+This helper use the PHP TLDExtract Library. More infos here http://w-shadow.com/blog/2012/08/28/tldextract/
+
 ## Test Whois
 This helper use the PHP Whois Library. More infos here https://github.com/phpWhois/phpWhois
 
