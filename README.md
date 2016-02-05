@@ -8,6 +8,9 @@ CA/Browser Forum CSR Validator
 * PHP Openssl
 
 ## Install
+
+### Deploy on a web server
+
 Download the package and make it available to your web server.
 Example: `git clone <URL> /var/www/csr_validator`
 
@@ -16,6 +19,7 @@ Refer to http://docs.developer.swisscom.com/apps/buildpacks/php/
 
 * Sign-up or Login on https://developer.swisscom.com
 * Prepare the target (Orgs, Spaces, Apps)
+* Checkout the package like for local deployment on a web server
 * Upload the package
 ```
 cd <location of the git checkout>
