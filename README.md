@@ -11,6 +11,19 @@ CA/Browser Forum CSR Validator
 Download the package and make it available to your web server.
 Example: `git clone <URL> /var/www/csr_validator`
 
+### Deploy on Swisscom App Cloud
+Refer to http://docs.developer.swisscom.com/apps/buildpacks/php/
+
+* Sign-up or Login on https://developer.swisscom.com
+* Prepare the target (Orgs, Spaces, Apps)
+* Upload the package
+```
+cf login -a https://api.lyra-836.appcloud.swisscom.com -u mail@acme.org
+cf target -o ENT-BD-AEN -s prod
+cf push cab-csr-validator
+```
+The related configurations can be found in `manifest.yml` and in the `.bp-config/options.json'
+
 ## Configuration
 * Rename the configuration file example from `conf/configuration.example.php` to `conf/configuration.php`
 * Edit the configuration file `conf/configuration.php` according to your environment
