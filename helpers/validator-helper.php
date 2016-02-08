@@ -377,6 +377,16 @@ class validator_helper {
 
 					break;
 
+				case 's':
+
+					if (is_array($value)) {
+						$this->csr_s = $value;
+					} else {
+						$this->csr_s[0] = $value;
+					}					
+
+					break;
+
 				case 'l':
 					$this->csr_l = $value;
 					break;
@@ -509,7 +519,7 @@ class validator_helper {
 	*/
 	private function checkLocalityAndState() {
 
-		if (!strlen($this->csr_l.$this->csr_s)) {
+		if (!strlen($this->csr_l.$this->csr_st)) {
 			return false;
 		}
 
