@@ -227,9 +227,10 @@ if ($validator->checkRequest()) {
 									<td><?php echo $i; ?></td>
 									<td><?php echo '<strong>'.$response_check["check"].'</strong>'; ?></td>
 									<td>
-										<em><?php echo $response_check["result_msg"]; ?></em>
 										<?php if (isset($response_check["detail"])) { ?>
-										<?php echo ', '.$response_check["detail"]; ?>
+										<?php echo '<em>'.$response_check["result_msg"].'</em>, '.$response_check["detail"]; ?>
+										<?php } else { ?>
+										<?php echo '<em>'.$response_check["result_msg"].'</em>'; ?>
 										<?php } ?>
 									</td>
 								</tr>
@@ -255,9 +256,10 @@ if ($validator->checkRequest()) {
 									<td><?php echo $i; ?></td>
 									<td><?php echo '<strong>'.$response_result["check"].'</strong>'; ?></td>
 									<td>
-										<em><?php echo $response_result["result_msg"]; ?></em>
 										<?php if (isset($response_result["detail"])) { ?>
-										<?php echo ', '.$response_result["detail"]; ?>
+										<?php echo '<em>'.$response_result["result_msg"].'</em>, '.$response_result["detail"]; ?>
+										<?php } else { ?>
+										<?php echo '<em>'.$response_result["result_msg"].'</em>'; ?>
 										<?php } ?>
 									</td>
 								</tr>
@@ -294,7 +296,7 @@ if ($validator->checkRequest()) {
 				<div>
 					<p class="text-muted"><?php echo str_replace('%s', number_format($validator->duration, 3), $app->getText('APP_SUBMIT_SUCCESS_DURATION')); ?></p>
 				</div>
-				<a class="btn btn-primary" href="index.php" role="button"><?php echo $app->getText('APP_REQUEST_BACK'); ?></a>
+				<a class="btn btn-default active" href="index.php" role="button"><?php echo $app->getText('APP_REQUEST_BACK'); ?></a>
 			</div>
 		</div>
 		<div class="footer">

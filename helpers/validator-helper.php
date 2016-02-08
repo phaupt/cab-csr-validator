@@ -642,7 +642,7 @@ class validator_helper {
 
 				$san_dns = $tldextract["domain"].'.'.$tldextract["tld"];
 
-				if ($san_dns != $san_dns_temp) {
+				if ($san_dns != $san_dns_temp && !strstr($san_dns, '*')) {
 					$this->csr_domains[]["domain"] = $san_dns;
 					$san_dns_temp = $san_dns;
 				}

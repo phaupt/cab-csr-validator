@@ -47,7 +47,7 @@ $app = new validator_app();
 								<label class="col-md-1 control-label" for="csr_upload"><?php echo $app->getText('APP_CSR_UPLOAD_LABEL'); ?></label>
 								<div class="col-md-5">
 									<div class="input_file_button_zone">
-										<a class="btn btn-primary" href="#">
+										<a class="btn btn-default active" href="#">
 											<?php echo $app->getText('APP_CSR_TEXT_UPLOAD_CHOOSE'); ?>
 											<input type="file" style='position:absolute;z-index:2;top:0;left:0;filter: alpha(opacity=0);-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";opacity:0;background-color:transparent;color:transparent;' name="csr_upload" id="csr_upload">
 										</a>
@@ -67,8 +67,8 @@ $app = new validator_app();
 								<div class="col-md-4">
 									<label class="col-md-2 col-md-offset-1 control-label" for="s"></label>
 									<div id="button_zone">
-										<button class="btn btn-primary" id="submit_btn_remove"><?php echo $app->getText('APP_SUBMIT_BTN_REMOVE'); ?></button>
-										<button class="btn btn-primary" id="submit_btn_send" type="submit"><?php echo $app->getText('APP_SUBMIT_BTN_SEND'); ?></button>
+										<button class="btn btn-default active" id="submit_btn_remove"><?php echo $app->getText('APP_SUBMIT_BTN_REMOVE'); ?></button>
+										<button class="btn btn-default active" id="submit_btn_send" type="submit"><?php echo $app->getText('APP_SUBMIT_BTN_SEND'); ?></button>
 									</div>
 									<div id="spinner"></div>
 								</div>
