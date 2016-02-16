@@ -356,7 +356,7 @@ class validator_helper {
 		}
 
 		$this->csr_subject = openssl_csr_get_subject($this->csr_content);
-
+		
 		if (!$this->csr_subject) {
 			return false;
 		}
@@ -377,6 +377,7 @@ class validator_helper {
 
 					break;
 
+				case 'street':
 				case 's':
 
 					if (is_array($value)) {

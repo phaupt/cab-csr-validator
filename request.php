@@ -77,6 +77,14 @@ if ($validator->checkRequest()) {
 								</tr>
 								<?php } ?>
 								<?php } ?>
+								<?php if (count($validator->csr_s)) { ?>
+								<?php foreach($validator->csr_s as $s) { ?>
+								<tr>
+									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_S'); ?></td>
+									<td><?php echo $s; ?></td>
+								</tr>
+								<?php } ?>
+								<?php } ?>
 								<?php if (strlen($validator->csr_l)) { ?>
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_L'); ?></td>
@@ -90,12 +98,6 @@ if ($validator->checkRequest()) {
 									<td><?php echo $st; ?></td>
 								</tr>
 								<?php } ?>
-								<?php } ?>
-								<?php if (strlen($validator->csr_s)) { ?>
-								<tr>
-									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_S'); ?></td>
-									<td><?php echo $validator->csr_s; ?></td>
-								</tr>
 								<?php } ?>
 								<?php if (strlen($validator->csr_c)) { ?>
 								<tr>
