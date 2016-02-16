@@ -20,6 +20,7 @@ Refer to http://docs.developer.swisscom.com/apps/buildpacks/php/
 * Sign-up or Login on https://developer.swisscom.com
 * Prepare the target (Orgs, Spaces, Apps)
 * Checkout the package like for local deployment on a web server
+* Define the proper configuration (see below)
 * Upload the package
 ```
 cd <location of the git checkout>
