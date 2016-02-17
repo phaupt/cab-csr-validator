@@ -105,6 +105,14 @@ if ($validator->checkRequest()) {
 									<td><?php echo $validator->csr_c; ?></td>
 								</tr>
 								<?php } ?>
+								<?php if (count($validator->csr_other)) { ?>
+								<?php foreach($validator->csr_other as $other) { ?>
+								<tr>
+									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_OTHER'); ?></td>
+									<td><?php echo $other; ?></td>
+								</tr>
+								<?php } ?>
+								<?php } ?>
 								<?php if ($validator->csr_keysize) { ?>
 								<tr>
 									<td><?php echo $app->getText('APP_REQUEST_KEY_SIZE'); ?></td>

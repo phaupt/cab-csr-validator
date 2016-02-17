@@ -51,6 +51,7 @@ class validator_helper {
 	public $csr_c;
 	public $csr_email;
 	public $csr_phone;
+	public $csr_other;
 	public $csr_keysize;
 	public $csr_sans;
 	public $csr_ips;
@@ -384,7 +385,7 @@ class validator_helper {
 						$this->csr_s = $value;
 					} else {
 						$this->csr_s[0] = $value;
-					}					
+					}
 
 					break;
 
@@ -411,6 +412,18 @@ class validator_helper {
 				case 'emailaddress':
 				case 'mail':
 					$this->csr_email = $value;
+					break;
+
+				default:
+				
+					if (is_array($value)) {
+						foreach($value as $val) {
+							$this->csr_other[] = strtolower($key).":".$value;
+						}
+					} else {
+						$this->csr_other[] = strtolower($key).":".$value;
+					}
+
 					break;
 			}
 		}
