@@ -51,7 +51,7 @@ class validator_helper {
 	public $csr_c;
 	public $csr_email;
 	public $csr_phone;
-	public $csr_other;
+	public $csr_others;
 	public $csr_keysize;
 	public $csr_sans;
 	public $csr_ips;
@@ -361,6 +361,9 @@ class validator_helper {
 		if (!$this->csr_subject) {
 			return false;
 		}
+		
+		$i=0;
+		$this->csr_others = array();
 
 		foreach ($this->csr_subject as $key => $value) {
 			switch (strtolower($key)) {
@@ -416,18 +419,26 @@ class validator_helper {
 
 				default:
 				
+					if (strtolower($key) == 'undef') {
+						break;
+					}
+
 					if (is_array($value)) {
 						foreach($value as $val) {
-							$this->csr_other[] = strtolower($key).":".$value;
+							$this->csr_others[$i]['title'] = $key;
+							$this->csr_others[$i]['value'] = $val;
 						}
 					} else {
-						$this->csr_other[] = strtolower($key).":".$value;
+						$this->csr_others[$i]['title'] = $key;
+						$this->csr_others[$i]['value'] = $value;
 					}
+					
+					$i++;
 
 					break;
 			}
 		}
-
+		
 		return true;
 	}
 

@@ -105,11 +105,11 @@ if ($validator->checkRequest()) {
 									<td><?php echo $validator->csr_c; ?></td>
 								</tr>
 								<?php } ?>
-								<?php if (count($validator->csr_other)) { ?>
-								<?php foreach($validator->csr_other as $other) { ?>
+								<?php if (count($validator->csr_others)) { ?>
+								<?php foreach($validator->csr_others as $other) { ?>
 								<tr>
-									<td><?php echo $app->getText('APP_REQUEST_SUBJECT_OTHER'); ?></td>
-									<td><?php echo $other; ?></td>
+									<td><?php echo $other['title']; ?></td>
+									<td><?php echo $other['value']; ?></td>
 								</tr>
 								<?php } ?>
 								<?php } ?>
