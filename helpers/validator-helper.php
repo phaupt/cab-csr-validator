@@ -418,10 +418,6 @@ class validator_helper {
 					break;
 
 				default:
-				
-					if (strtolower($key) == 'undef') {
-						break;
-					}
 
 					if (is_array($value)) {
 						foreach($value as $val) {
