@@ -423,6 +423,7 @@ class validator_helper {
 						foreach($value as $val) {
 							$this->csr_others[$i]['title'] = $key;
 							$this->csr_others[$i]['value'] = $val;
+							$i++;
 						}
 					} else {
 						$this->csr_others[$i]['title'] = $key;
@@ -434,7 +435,7 @@ class validator_helper {
 					break;
 			}
 		}
-		
+
 		return true;
 	}
 
