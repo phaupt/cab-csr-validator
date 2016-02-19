@@ -420,13 +420,26 @@ class validator_helper {
 				default:
 
 					if (is_array($value)) {
+
 						foreach($value as $val) {
-							$this->csr_others[$i]['title'] = $key;
+							if (strtolower($key) == 'undef') {
+								$this->csr_others[$i]['title'] = $this->app->getText('APP_REQUEST_SUBJECT_OTHER');
+							} else {
+								$this->csr_others[$i]['title'] = $key;
+							}
+
 							$this->csr_others[$i]['value'] = $val;
+
 							$i++;
 						}
 					} else {
-						$this->csr_others[$i]['title'] = $key;
+
+						if (strtolower($key) == 'undef') {
+							$this->csr_others[$i]['title'] = $this->app->getText('APP_REQUEST_SUBJECT_OTHER');
+						} else {
+							$this->csr_others[$i]['title'] = $key;
+						}
+
 						$this->csr_others[$i]['value'] = $value;
 					}
 					
